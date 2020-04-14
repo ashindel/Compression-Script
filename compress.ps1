@@ -11,16 +11,22 @@ function Find-Path {
     param (
         [Validatescript({
             if( -Not ($_ | Test-Path)){
-                throw "File or folder does not exist"
+                throw "The path $_  does not exist"  
             }
-            ##else {
-            ##    throw "found file"     testing to see it works   ... maybe use try catch instead
-            ##}
-            return $true 
-        })]
+            return $true
+            })]
         [System.IO.FileInfo]$Path
     )
 }
-$Path = Read-Host -Prompt "Enter the folder path"
-New-Item $Path -type Directory
+Find-Path -path C:\us
 
+# $Path = Read-Host -Prompt "Enter the folder path: "
+# New-Item $Path -type Directory
+
+# Function Get-Soda {
+#     [CmdletBinding()]
+#     param (
+#         [ValidateScript({$_ -eq 20})]
+#         $Bill
+#     )
+# }
