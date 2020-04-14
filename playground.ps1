@@ -42,3 +42,18 @@ If ( -Not (Test-Path C:\Users\ajs573\Documents\ScriptOutput ) )
 ## Script Testing File
 # Simple html script maker
 get-eventlog -LogName system -Newest 5 -EntryType error | Select-Object -Property index, source, message | ConvertTo-Html | out-file C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Scripts\test.htm -Append
+
+## https://4sysops.com/archives/how-to-use-parameter-validation-in-powershell-scripts/
+## Function basics
+
+function Get-LoggedOnUser
+ {
+     [CmdletBinding()]
+     param
+     (
+         [Parameter()]
+         [ValidatePattern('^\w+$')]
+         [string]$ComputerName
+     )
+     Get-WmiObject –ComputerName $ComputerName –Class 'Win32_OperatingSystem'
+ }
