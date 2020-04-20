@@ -23,7 +23,12 @@ function Find-Path {
             })]
         [System.IO.FileInfo]$Path
     )
-    Get-ChildItem -path $path -recurse -directory | Format-Table -HideTableHeaders FullName ## Display all childitems that are folders
+    if ( -Not (Get-ChildItem -Path $Path -Directory | Where-Object {$_.PSIsContainer -eq $true -and $_.Name -Like "scripts"} )) {
+        throw "There is no dbdump folder in the path $Path"
+    }
+    else {Get-ChildItem -Path $Path -Recurse | Format-Table -HideTableHeaders FullName | out-file C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Outputs\dbdump_master_list.txt
+        
+    } 
 }
 # Invoke Find-Path function with specified path location
-Find-Path -path C:\users\ajs573\Documents\
+Find-Path -path C:\users\ajs573\Documents
