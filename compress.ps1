@@ -49,10 +49,27 @@ function Find-Path {
     }
     else { 
         Get-ChildItem -Path $dbDumpPath -File | Format-Table -HideTableHeaders FullName | out-file $MasterList   ## add files in dbdump to master list
-        $ArchivedFolder = New-Item -Path $dbDumpPath -Name "archived" -ItemType "directory" ## Creates new archived folder
-        Get-ChildItem -Path $dbDumpPath -File | Compress-Archive -Update -DestinationPath ($ArchivedFolder.toString() + "\archived.zip")
-        Get-ChildItem -Path $ArchivedFolder -File -Recurse | Format-Table -HideTableHeaders FullName | out-file -append $MasterList ## add new zip files to master list
+        $ArchivedFolder = New-Item -Path $dbDumpPath -Name "archived" -ItemType "directory" ## Creates new archived folder  
+        # save the list of files so we can examine each one individually
+        $allChildFiles = Get-ChildItem -Path $dbDumpPath -File
+        
+        # run through each file
+        foreach ($file in $allChildFiles) {
+            # assemble the file path that will be our new .zip file
+            $zipFileDestinationPath = "$($ArchivedFolder.FullName)\$($file.BaseName).zip" ## .FullName is the path \ .BasseName just appends the file name
+            Write-Debug "-------------"
+            Write-Debug "Zipping file '$($file.Name)' to folder '$($ArchivedFolder.FullName)'"
+            Write-Debug " path to file to zip: '$($file.FullName)'"
+            Write-Debug " destination: $zipFileDestinationPath"
+            Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath
+            
+            # log this single file:
+            $zipFileDestinationPath | out-file -append  $MasterList  ## add new zip files to master list 
+        }
     }
+   
+   
+    
 }
 # Invoke Find-Path function with specified path location
 Find-Path -path C:\users\ajs573\Documents
