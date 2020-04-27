@@ -25,7 +25,7 @@ PowerShell DB Dump Compression
 #>
 
 <# Task 3.5:
-    - Fix errors when running script again (will improve testing)
+    - Fix errors when running script again (will improve testing) (added Delete-Tests function)
     - Add full path names to the appended master list, second iteration changes file path output in $Masterlist
 #>
 
@@ -42,6 +42,17 @@ PowerShell DB Dump Compression
     - the name of the "archived" folder  (done)
     - only .zip files with this file-extension
 #>
+
+## Function to get human-readable file size format for $MasterList output
+function Get-FriendlySize {
+    param($Bytes)
+    $sizes='Bytes,KB,MB,GB,TB,PB,EB,ZB' -split ','
+    for($i=0; ($Bytes -ge 1kb) -and
+        ($i -lt $sizes.Count); $i++) {$Bytes/=1kb}
+    $N=2; if($i -eq 0) {$N=0}
+    "{0:N$($N)} {1}" -f $Bytes, $sizes[$i]
+}
+
 
 function Find-Path {
     param (
@@ -65,58 +76,35 @@ function Find-Path {
         throw "There is no dbdump folder in the path $Path"
     }
     else { 
-        Get-ChildItem -Path $dbDumpPath -File | Format-Table -HideTableHeaders FullName | out-file $MasterList   ## add files in dbdump to master list
-        $ArchivedFolder = New-Item -Path $dbDumpPath -Name "archived" -ItemType "directory" ## Creates new archived folder  
-        # save the list of files so we can examine each one individually
-        $allChildFiles = Get-ChildItem -Path $dbDumpPath | Where-Object {$_.extension -in ".sql"}
+        Get-ChildItem -Path $dbDumpPath -File | Format-Table -HideTableHeaders FullName -AutoSize | out-file $MasterList   ## Add all files in dbdump folder to master list
+        $ArchivedFolder = New-Item -Path $dbDumpPath -Name "archived" -ItemType "directory" ## Create archived folder  
+        # Save the list of files so we can examine each one individually
+        $allChildFiles = Get-ChildItem -Path $dbDumpPath | Where-Object {$_.extension -in ".sql"} ## All .sql files in dbdump folder
+        Get-ChildItem $allChildFiles -File -Recurse |
+        Format-Table @{Name="Original files in dbdump folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize |
+        Out-File -append $MasterList ## Formmated table 
         
-        # run through each file
+        # Run through each file
         foreach ($file in $allChildFiles) {
-            $size=Format-FileSize((Get-Item $file).length)
-            If ($size -gt 1TB) {
-                [string]::Format("{0:0.00} TB", $size / 1TB) | out-file -append $MasterList } 
-            ElseIf ($size -gt 1GB) {
-                [string]::Format("{0:0.00} GB", $size / 1GB) | out-file -append $MasterList }
-            ElseIf ($size -gt 1MB) {
-                [string]::Format("{0:0.00} MB", $size / 1MB)  | out-file -append $MasterList }
-            ElseIf ($size -gt 1KB) {
-                [string]::Format("{0:0.00} kB", $size / 1KB)  | out-file -append $MasterList }
-            ElseIf ($size -eq 0KB) {
-                [string]::Format("{0:0.00} B", $size) | out-file -append $MasterList }
-            Else {""}
+
             # assemble the file path that will be our new .zip file
             $zipFileDestinationPath = "$($ArchivedFolder.FullName)\$($file.BaseName).zip" ## .FullName is the path \ .BasseName just appends the file name
             Write-Debug "-------------"
             Write-Debug "Zipping file '$($file.Name)' to folder '$($ArchivedFolder.FullName)'"
             Write-Debug " path to file to zip: '$($file.FullName)'"
             Write-Debug " destination: $zipFileDestinationPath"
-            # (Original) File size calculator, date time file was created
-            
-                # $size = (Get-Item $file).length -ge 0kb 
-                # $size=(Get-Item $file).length/1024  #Getting the File size in KB**
-                #$size | out-file -append $MasterList #"$file is $size KB"  # display the name of the file and its size in KB**
-             
-            
-            
-            
-
             Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath # -Force
-
-            # File size of new zipped file
-            
-            # log this single file:
-            $zipFileDestinationPath | out-file -append  $MasterList 
         }
-    }   Invoke-Item "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Outputs\dbdump_master_list.txt"  ## add new zip files to master list   
+        Get-ChildItem -Path $ArchivedFolder -File -Recurse | Select-Object @{Name="Zipped files from dbdump folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize | Out-File -append $masterList 
+
+    }   Invoke-Item "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Outputs\dbdump_master_list.txt"  ## opens master list text file
 }
 # Invoke Find-Path function with specified path location
 Find-Path -path C:\users\ajs573\Documents
 
-#Get-ChildItem -Path C:\users\ajs573\Documents\dbdump -file |  Select-Object CreationTime, Length
-
-## Delete archived folder and master list text file
+## Delete archived folder and master list text file (for testing purposes)
 # function Delete-Tests {
 #     Remove-Item -Path C:\users\ajs573\Documents\dbdump\archived -recurse
 #     Remove-Item -Path C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Outputs\* -include *.txt
 # }
-# Delete-tests
+# Delete-Tests
