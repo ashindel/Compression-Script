@@ -43,17 +43,6 @@ PowerShell DB Dump Compression
     - only .zip files with this file-extension
 #>
 
-## Function to get human-readable file size format for $MasterList output
-function Get-FriendlySize {
-    param($Bytes)
-    $sizes='Bytes,KB,MB,GB,TB,PB,EB,ZB' -split ','
-    for($i=0; ($Bytes -ge 1kb) -and
-        ($i -lt $sizes.Count); $i++) {$Bytes/=1kb}
-    $N=2; if($i -eq 0) {$N=0}
-    "{0:N$($N)} {1}" -f $Bytes, $sizes[$i]
-}
-
-
 function Find-Path {
     param (
         [Validatescript({
@@ -76,28 +65,48 @@ function Find-Path {
         throw "There is no dbdump folder in the path $Path"
     }
     else { 
+        ## Function to get human-readable file size format for $MasterList output
+        function Get-FriendlySize {
+            param($Bytes)
+            $sizes='Bytes,KB,MB,GB,TB,PB,EB,ZB' -split ','
+            for($i=0; ($Bytes -ge 1kb) -and ($i -lt $sizes.Count); $i++) {
+                    $Bytes/=1kb
+            } $N=2;
+            if($i -eq 0) { 
+              $N=0 
+            } "{0:N$($N)} {1}" -f $Bytes, $sizes[$i]
+        }        
         Get-ChildItem -Path $dbDumpPath -File | Format-Table -HideTableHeaders FullName -AutoSize | out-file $MasterList   ## Add all files in dbdump folder to master list
-        $ArchivedFolder = New-Item -Path $dbDumpPath -Name "archived" -ItemType "directory" ## Create archived folder  
-        # Save the list of files so we can examine each one individually
-        $allChildFiles = Get-ChildItem -Path $dbDumpPath | Where-Object {$_.extension -in ".sql"} ## All .sql files in dbdump folder
-        Get-ChildItem $allChildFiles -File -Recurse |
-        Format-Table @{Name="Original files in dbdump folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize |
-        Out-File -append $MasterList ## Formmated table 
-        
-        # Run through each file
-        foreach ($file in $allChildFiles) {
 
-            # assemble the file path that will be our new .zip file
-            $zipFileDestinationPath = "$($ArchivedFolder.FullName)\$($file.BaseName).zip" ## .FullName is the path \ .BasseName just appends the file name
-            Write-Debug "-------------"
-            Write-Debug "Zipping file '$($file.Name)' to folder '$($ArchivedFolder.FullName)'"
-            Write-Debug " path to file to zip: '$($file.FullName)'"
-            Write-Debug " destination: $zipFileDestinationPath"
-            Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath # -Force
-        }
-        Get-ChildItem -Path $ArchivedFolder -File -Recurse | Select-Object @{Name="Zipped files from dbdump folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize | Out-File -append $masterList 
+        ## Create archived folder if one does not exist
+        $Location = $dbDumpPath.toString() + "\archived"
+        if ((Test-Path $Location) -eq $False) {
+            $ArchivedFolder = New-Item -Path $dbDumpPath -Name "archived" -ItemType "directory"
+            # Save the list of files so we can examine each one individually
+            $allChildFiles = Get-ChildItem -Path $dbDumpPath | Where-Object {$_.extension -in ".sql"} ## All .sql files in dbdump folder
 
-    }   Invoke-Item "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Outputs\dbdump_master_list.txt"  ## opens master list text file
+            $allChildFiles | Format-Table @{N=".sql files in dbdump folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize |
+            Out-File -append $MasterList ## Add original file information to formatted table  
+            
+            # Run through each file
+            foreach ($file in $allChildFiles) {
+                # assemble the file path that will be our new .zip file
+                $zipFileDestinationPath = "$($ArchivedFolder.FullName)\$($file.BaseName).zip" ## .FullName is the path \ .BasseName just appends the file name
+                Write-Debug "-------------"
+                Write-Debug "Zipping file '$($file.Name)' to folder '$($ArchivedFolder.FullName)'"
+                Write-Debug " path to file to zip: '$($file.FullName)'"
+                Write-Debug " destination: $zipFileDestinationPath"
+                Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath # -Force
+            }
+            Get-ChildItem -Path $ArchivedFolder -File -Recurse | Select-Object @{Name="Zipped files from dbdump folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} |
+            Format-Table -AutoSize | Out-File -append $MasterList 
+
+            Invoke-Item $MasterList  ## opens master list text file
+        } 
+        else { # WIP
+             return $true
+        } 
+    }  
 }
 # Invoke Find-Path function with specified path location
 Find-Path -path C:\users\ajs573\Documents
