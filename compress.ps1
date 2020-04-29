@@ -81,8 +81,9 @@ function Find-Path {
             $sizes='Bytes,KB,MB,GB,TB,PB,EB,ZB' -split ','
             for($i=0; ($Bytes -ge 1kb) -and ($i -lt $sizes.Count); $i++) {
                     $Bytes/=1kb
+                    
             } $N=2; 
-            Write-Debug "Bytes value = $Bytes for $i th iteration"
+            ## Add debug message??
             if($i -eq 0) { 
               $N=0 
             } "{0:N$($N)} {1}" -f $Bytes, $sizes[$i] 
