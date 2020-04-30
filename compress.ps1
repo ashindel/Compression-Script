@@ -81,7 +81,6 @@ function Find-Path {
             $sizes='Bytes,KB,MB,GB,TB,PB,EB,ZB' -split ','
             for($i=0; ($Bytes -ge 1kb) -and ($i -lt $sizes.Count); $i++) {
                     $Bytes/=1kb
-                    
             } $N=2; 
             ## Add debug message??
             if($i -eq 0) { 
@@ -100,7 +99,7 @@ function Find-Path {
         }
         # Save the list of files so we can examine each one individually
         $allChildFiles = Get-ChildItem -Path $dbDumpPath | Where-Object {$_.extension -in $FileExtension} ## All .sql files in dbdump folder
-    
+        
         $allChildFiles | Format-Table @{N="$FileExtension files in dbdump folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize |
         Out-File -append $MasterList ## Add every original file info to formatted table  
         
@@ -112,19 +111,29 @@ function Find-Path {
             Write-Debug "Zipping file '$($file.Name)' to folder '$($ArchivedFolder)'"
             Write-Debug " path to file to zip: '$($file.FullName)'"
             Write-Debug " destination: $zipFileDestinationPath"
-            Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite new changes to zipped files
+            Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
         }
         Get-ChildItem -Path $ArchivedFolder -File -Recurse | Select-Object @{N="Zipped files from dbdump folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} |
         Format-Table -AutoSize | Out-File -append $MasterList  ## Add zipped files to master list
         Invoke-Item $MasterList  ## opens master list text file
     } 
+    Write-Host "For testing purposes:"
+    Write-Host "Enter 1 to delete archived folder and master list."
+    Write-Host "Enter any other value to end script."
+    $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter your value'
+    # Delete archived folder and master list text file for script testing purposes
+    function ReverseCreatedItems {
+        Remove-Item -Path $ArchivedFolder -recurse
+        Remove-Item -Path $MasterList -include *.txt
+    }
+    if ($ReverseCreatedItemsParam -eq 1) {
+        Write-Debug "Removing items in $ArchivedFolder"
+        Write-Debug "Removing text file: $MasterList"
+        ReverseCreatedItems
+    } 
+    else {
+        return "The Find-Path script has terminated"
+    }
 }
 # Invoke Find-Path function. Specify path to compress and folder name of files to be compressed
 Find-Path -Path C:\users\ajs573\Documents -ArchiveFolderPath "\archived"
-
-## Delete archived folder and master list text file (for testing purposes)
-# function Delete-Tests {
-#     Remove-Item -Path C:\users\ajs573\Documents\dbdump\archived -recurse
-#     Remove-Item -Path C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\Outputs\* -include *.txt
-# }
-# Delete-Tests
