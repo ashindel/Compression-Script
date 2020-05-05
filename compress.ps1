@@ -67,8 +67,8 @@ function Invoke-DBCompressScript {
         [String]$DBDumpFolderPath = "\dbdump", ## default value of dbdump folder
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folder
-        [String]$MasterListFolderPath = $Path.toString() + "\Masterlist-Output", ## Master list folder location
-        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master list of outputted files from dbdump folder and zipped files
+        [String]$MasterListFolderPath = $Path.toString() + "\Masterlist-Output", ## default value of master list folder location
+        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master list text file location
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
     # dbdump folder variables
@@ -82,41 +82,46 @@ function Invoke-DBCompressScript {
     else { 
         #  Get-FriendlySize function to get human-readable file size format for $MasterList output
         function Get-FriendlySize {
+            # Write-Debug messages commented out for usability purposes
             param($Bytes)
+                #Write-Debug "Inside $($MyInvocation.MyCommand) now"
+                #Write-Debug "  bytes is originally '$($Bytes)'"
+
             $sizes='Bytes,KB,MB,GB,TB,PB,EB,ZB' -split ','
             for($i=0; ($Bytes -ge 1kb) -and ($i -lt $sizes.Count); $i++) {
-                    $Bytes/=1kb
+                $Bytes/=1kb
             } $N=2; 
-            ## Add debug message??
+                #Write-Debug "  bytes is now '$($Bytes)'"
+                #Write-Debug "  N is '$($N)'"
             if($i -eq 0) { 
               $N=0 
             } "{0:N$($N)} {1}" -f $Bytes, $sizes[$i] 
-        } 
-        # Test the $MasterList path to determine script output behavior  
-        # If $MasterList path is valid, use Out-File command 
-        # If $MasterList path is not valid, use Write-Debug command 
+        }
+        # Test the $MasterListFolderPath  to determine script output behavior  
+        # If $MasterListFolderPath  is valid, use Out-File command 
+        # If $MasterListFolderPath  is not valid, output Format-Table into console
         if (Test-Path -Path $MasterListFolderPath) {
             $MasterListValid = $true
         }
         else {
             $MasterListValid = $false
         }    
-        
-        $OutputText = Get-ChildItem -Path $dbDumpFullPath -File | Format-Table -HideTableHeaders FullName -AutoSize ## Get all original files in $dbDumpFullPath
-        # $MasterListValid boolean value determines where $dbDumpFullPath files are outputted
-        if ($MasterListValid -eq $true) {
+        # Get every original files in $dbDumpFullPath
+        $OutputText = Get-ChildItem -Path $dbDumpFullPath -File | Format-Table -HideTableHeaders FullName -AutoSize 
+        # $MasterListValid boolean value determines where $dbDumpFullPath files are outputted 
+        if ($MasterListValid) {
             $OutputText | out-file $MasterListFilePath 
         }
         else {
-            $OutputText
+            Write-Host ($OutputText | Out-String)
         }
         
-        
-        # handle .sql and sql inputs for $SQLFileExtension
+        # Handle .sql and sql inputs for $SQLFileExtension
         if (-Not ($SQLFileExtension | Where-Object {($_ -like ".sql") -or ($_ -like "sql")})) {
             Write-Debug ('The ' + $SQLFileExtension + ' file extension is not correct')
         }
-        # archived folder variables
+
+        # Archived folder variables
         $ArchivedFullPath = $dbDumpFullPath.toString() + $ArchivedFolderPath ## $ArchivedFullPath is the full path name for the archived folder
         $ArchivedFolderName = $ArchivedFolderPath.Substring(1) ## $ArchivedFolderName removes '/' from /archived string
 
@@ -129,19 +134,18 @@ function Invoke-DBCompressScript {
         }
         
         # Save the list of files so we can examine each one individually
-        $allChildFiles = Get-ChildItem -Path $dbDumpFullPath | Where-Object {$_.extension -match $SQLFileExtension} ## All .sql files in dbdump folder
-        
-        $OutputText = $allChildFiles | Format-Table @{N="$SQLFileExtension files in $DBDumpFolderPath folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
-        if ($MasterListValid -eq $true) {
-            $OutputText | Out-File -append $MasterListFilePath ## Add every original file's info to formatted table
+        $dbDumpChildFiles = Get-ChildItem -Path $dbDumpFullPath | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in dbdump folder
+        # Format files in $dbDumpFullPath that match $SQLFileExtenion 
+        $OutputText = $dbDumpChildFiles | Format-Table @{N="$SQLFileExtension files in $DBDumpFolderPath folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
+        if ($MasterListValid) {
+            $OutputText | Out-File -append $MasterListFilePath ## Add each $SQLFileExtension file info to $MasterListFilePath
         }
         else {
-            $OutputText
+            Write-Host ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
         }
           
-        
         # Run through each file
-        foreach ($file in $allChildFiles) {
+        foreach ($file in $dbDumpChildFiles) {
             # assemble the file path that will be our new .zip file
             $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
             Write-Debug "-------------"
@@ -150,27 +154,29 @@ function Invoke-DBCompressScript {
             Write-Debug " Destination: $zipFileDestinationPath"
             Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
         }
-        # 
+        # Format files in $ArchivedFullPath 
         $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $DBDumpFolderPath folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
-        if ($MasterListValid -eq $true) {
-            $OutputText | Out-File -append $MasterListFilePath ## Add zipped files to master list
+        if ($MasterListValid) {
+            $OutputText | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
         }
         else {
-            $OutputText
+            Write-Host ($OutputText | Out-String) ## Print $ArchivedFullPath files to console 
         }
-        if ($MasterListValid -eq $true) {
-            Invoke-Item $MasterListFilePath  ## opens master list text file
+        if ($MasterListValid) {
+            Write-Debug "-------------"
+            Write-Debug "Opening the $($MasterListFilePath)..."
+            Invoke-Item $MasterListFilePath  ## opens text file
         }
     } 
+    # ReverseCreatedItems function used to deleted  archived folder and master list text file for script testing purposes
     Write-Host "For testing purposes:"
     Write-Host "Enter 1 to delete archived folder and master list."
     Write-Host "Enter any other value to end script."
     $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter your value'
-    # Delete archived folder and master list text file for script testing purposes
     function ReverseCreatedItems {
         Write-Debug "Removing folder: $ArchivedFullPath"
         Remove-Item -Path $ArchivedFullPath -recurse
-        if ($MasterListValid -eq $true) {
+        if ($MasterListValid) {
             Write-Debug "Removing text file: $MasterListFilePath"
             Remove-Item -Path $MasterListFilePath -include *.txt
         }  
