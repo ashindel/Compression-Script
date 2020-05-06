@@ -67,6 +67,11 @@ function Invoke-DBCompressScript {
             return $true
             })]
         # Parameters
+
+                # Need to add default values for archived folder to be injected into its respective its folder
+
+
+
         [System.IO.FileInfo]$Path = "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\DB-Dump-Compression\testStructures\Drupal 8 Dumps", # $path is the most parent folder of file structure
         [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder, this is within a specific repo
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
@@ -90,22 +95,18 @@ function Invoke-DBCompressScript {
         Write-Debug "The master list folder path: $($MasterListFolderPath) is not valid."
         Write-Debug "Script output will be sent to the console."
         $MasterListValid = $false
-    }    
-    
+    } 
+
     $PathChildFolders = Get-ChildItem -Path $Path -Directory | Where-Object {$_.Name -match "d8c"} 
-    Write-Output ($PathChildFolders.FullName | Out-String)
-    
-    foreach ($dbdumpFolderPath in $PathChildFolders) { # find the dbdump folder in each d8c repo folder 
-        #Write-Output ($dbdumpFolderPath.FullName | Out-String)
+    foreach ($dbdumpFolderPath in $PathChildFolders) { ## get the dbdump folder in each d8c repo folder 
         if ( -Not (Get-ChildItem -Path $dbdumpFolderPath.FullName -Directory | Where-Object {$_.Name -like $dbDumpString} )) {
             throw 'There is no ' + $dbDumpString + ' folder in the path: ' + $dbdumpFolderPath.FullName
         }
         else { 
             $d8cChildFolders = Get-ChildItem -Path $dbdumpFolderPath.FullName -Directory | Where-Object {$_.Name -like $dbDumpString}
-            #Write-Output ($dbdumpChildFolder.FullName | Out-String)
             $dbdumpChildFolders =  Get-ChildItem -Path $d8cChildFolders.FullName -Directory | Where-Object {$_.Name -match "its"}
             # get the its### folders in each dbdump folder
-            foreach ($itsFolder in $dbdumpChildFolders) {
+            foreach ($itsFolderName in $dbdumpChildFolders) { ## get each its folder in the dbdump folder from each d8c repo folder
                 #  Get-FriendlySize function to get human-readable file size format for $MasterList output
                 function Get-FriendlySize {
                     # Write-Debug messages commented out for usability purposes
@@ -122,40 +123,39 @@ function Invoke-DBCompressScript {
                     $N=0 
                     } "{0:N$($N)} {1}" -f $Bytes, $sizes[$i] 
                 }
-                Write-Output ($itsFolder.Fullname | Out-String)
                 
-                # Get every original files in $dbDumpFullPath
-                $OutputText = Get-ChildItem -Path $itsFolder.FullName -File | Format-Table -HideTableHeaders FullName -AutoSize 
-                # $MasterListValid boolean value determines where $itsFolder files are outputted 
-                if ($MasterListValid) {
-                    $OutputText | out-file $MasterListFilePath -append
-                }
-                else {
-                    Write-Output ($OutputText | Out-String)
-                }
-                
+                $itsname = $itsFolderName.Fullname
+                # #Get every original files in $dbDumpFullPath
+                # $OutputText = Get-ChildItem -Path $itsname -File | Format-Table -HideTableHeaders FullName -AutoSize 
+                # # $MasterListValid boolean value determines where $itsFolder files are outputted 
+                # if ($MasterListValid) {
+                #     $OutputText | out-file $MasterListFilePath -append 
+                # }
+                # else {
+                #     Write-Output ($OutputText | Out-String)
+                # }
                 
                 # Handle .sql and sql inputs for $SQLFileExtension
                 if (-Not ($SQLFileExtension | Where-Object {($_ -like ".sql") -or ($_ -like "sql")})) {
                     Write-Debug ('The ' + $SQLFileExtension + ' file extension is not correct')
-                    exit
+                    # exit
                 }  
                 # Archived folder variables
-                $ArchivedFullPath = $itsFolder.toString() + $ArchivedFolderPath ## $ArchivedFullPath is the full path name for the archived folder
+                $ArchivedFullPath = $itsname.toString() + $ArchivedFolderPath ## $ArchivedFullPath is the full path name for the archived folder
                 $ArchivedFolderName = $ArchivedFolderPath.Substring(1) ## $ArchivedFolderName removes '/' from /archived string
-
+                
                 # Check if an "archived" folder already exists in the its### folder, if not, create one
                 if (-not (Test-Path -Path $ArchivedFullPath)) {
-                    New-Item -Path $itsFolder -Name $ArchivedFolderName -ItemType "directory" -force ## Create archived folder 
+                    New-Item -Path $itsname -Name $ArchivedFolderName -ItemType "directory" -Force ## Create archived folder 
                 } 
                 else {
                     Write-Debug ('The ' + $ArchivedFolderName + ' folder already exists. Path: ' + $ArchivedFullPath)
                 }
 
                 # Save the list of files in its### folder so we can examine each one individually
-                $itsChildFiles = Get-ChildItem -Path $itsFolder | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in its### folder
+                $itsChildFiles = Get-ChildItem -Path $itsname | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in its### folder
                 # Format files in each $itsFolder that match $SQLFileExtenion 
-                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $itsFolder folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
+                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $itsFolderName folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add each $SQLFileExtension file info to $MasterListFilePath
                 }
@@ -174,7 +174,7 @@ function Invoke-DBCompressScript {
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
                 }
                 # Format files in $ArchivedFullPath 
-                $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $itsFolder folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
+                $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $itsFolderName folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
                 }
@@ -190,7 +190,7 @@ function Invoke-DBCompressScript {
         Write-Debug "Opening the file: $($MasterListFilePath)..."
         Invoke-Item $MasterListFilePath  
     }
-    <# ReverseCreatedItems function used to deleted archived folders and master list text file for script testing purposes
+    <#ReverseCreatedItems function used to deleted archived folders and master list text file for script testing purposes
     Write-Debug "For testing purposes:"
     Write-Debug "Enter 1 to delete archived folder and master list."
     Write-Debug "Enter any other value to end script."
@@ -213,5 +213,5 @@ function Invoke-DBCompressScript {
     }#>
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
-#-Path &(.\testStructures\Drupal' 8' Dump)
+#-Path ".\testStructures\Drupal 8 Dump"
 Invoke-DBCompressScript  -SQLFileExtension ".sql"
