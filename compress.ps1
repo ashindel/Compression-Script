@@ -1,5 +1,6 @@
 <# Alan Shindelman
-PowerShell DB Dump Compression
+PowerShell DB Dump Compression Script
+May 6th 2020
 #>
 
 <# Task 1: (Completed)
@@ -30,13 +31,13 @@ PowerShell DB Dump Compression
 #>
 
 <# Task 4: (Completed)
-1) Only zip files that have the .sql file-extension. 
-2) Record more information about the files you zip.
+- Only zip files that have the .sql file-extension. 
+- Record more information about the files you zip.
     - The original file's size 	
     - The date-time the original file was created 	
     - The file size of the newly created .zip file
-3) Output the above information (in the bullet points) to the log file in a sensible way that is readable by humans
-4) Create variables to make changing these aspects of the script easier 
+- Output the above information (in the bullet points) to the log file in a sensible way that is readable by humans
+- Create variables to make changing these aspects of the script easier 
 #>
 
 <# Task 5: (Completed)
@@ -44,12 +45,15 @@ PowerShell DB Dump Compression
 - Give the parameters a default value.	
 #>
 
-<# Task 6:
-This is a short task. But task 7 will be big.
-1 of 2) Test what happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
+<# Task 6: (Completed)
+- Test what happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
 Handle -FileExtension ".sql" and -FileExtension "sql" gracefully. In other words, the script should behave the same way with both of those.
-2 of 2) Handle gracefully when the $MasterList parameter is an invalid or inaccessible location.
+- Handle gracefully when the $MasterList parameter is an invalid or inaccessible location.
 Currently the script throws an unexpected exception when it first tries to write to $MasterList (line 104 Out-File).
+#>
+
+<# Task 7:
+- Expand how the script traverses through file directories to closer mimic Jenkins directory structure
 #>
 
 function Invoke-DBCompressScript {
@@ -67,7 +71,7 @@ function Invoke-DBCompressScript {
         [String]$DBDumpFolderPath = "\dbdump", ## default value of dbdump folder
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folder
-        [String]$MasterListFolderPath = $Path.toString() + "\Masterlist-Output", ## default value of master list folder location
+        [String]$MasterListFolderPath = $Path.toString() + "\Masterliste-Output", ## default value of master list folder location
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master list text file location
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
@@ -101,9 +105,13 @@ function Invoke-DBCompressScript {
         # If $MasterListFolderPath  is valid, use Out-File command 
         # If $MasterListFolderPath  is not valid, output Format-Table into console
         if (Test-Path -Path $MasterListFolderPath) {
+            Write-Debug "The master list folder path: $($MasterListFolderPath) is valid."
+            Write-Debug "Script output will be sent to $($MasterListFilePath)"
             $MasterListValid = $true
         }
         else {
+            Write-Debug "The master list folder path: $($MasterListFolderPath) is not valid."
+            Write-Debug "Script output will be sent to the console."
             $MasterListValid = $false
         }    
         # Get every original files in $dbDumpFullPath
@@ -113,7 +121,7 @@ function Invoke-DBCompressScript {
             $OutputText | out-file $MasterListFilePath 
         }
         else {
-            Write-Host ($OutputText | Out-String)
+            Write-Output ($OutputText | Out-String)
         }
         
         # Handle .sql and sql inputs for $SQLFileExtension
@@ -141,7 +149,7 @@ function Invoke-DBCompressScript {
             $OutputText | Out-File -append $MasterListFilePath ## Add each $SQLFileExtension file info to $MasterListFilePath
         }
         else {
-            Write-Host ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
+            Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
         }
           
         # Run through each file
@@ -160,18 +168,18 @@ function Invoke-DBCompressScript {
             $OutputText | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
         }
         else {
-            Write-Host ($OutputText | Out-String) ## Print $ArchivedFullPath files to console 
+            Write-Output ($OutputText | Out-String) ## Print $ArchivedFullPath files to console 
         }
         if ($MasterListValid) {
             Write-Debug "-------------"
-            Write-Debug "Opening the $($MasterListFilePath)..."
+            Write-Debug "Opening the file: $($MasterListFilePath)..."
             Invoke-Item $MasterListFilePath  ## opens text file
         }
     } 
     # ReverseCreatedItems function used to deleted  archived folder and master list text file for script testing purposes
-    Write-Host "For testing purposes:"
-    Write-Host "Enter 1 to delete archived folder and master list."
-    Write-Host "Enter any other value to end script."
+    Write-Debug "For testing purposes:"
+    Write-Debug "Enter 1 to delete archived folder and master list."
+    Write-Debug "Enter any other value to end script."
     $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter your value'
     function ReverseCreatedItems {
         Write-Debug "Removing folder: $ArchivedFullPath"
