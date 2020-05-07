@@ -67,11 +67,11 @@ function Invoke-DBCompressScript {
             return $true
             })]
         # Parameters
-        [System.IO.FileInfo]$Path = "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\DB-Dump-Compression\testStructures\Drupal 8 Dumps", # $path is the most parent folder of file structure
+        [System.IO.FileInfo]$Path = ".\testStructures\Drupal 8 Dumps", ## $path is the most parent folder of file structure
         [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder within a specific repo
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
-        [String]$ArchivedFolderPath = "\archived", ## default value of archived folder
-        [String]$MasterListFolderPath = "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\DB-Dump-Compression\testStructures\Masterlist-Output", ## default value of master list folder location
+        [String]$ArchivedFolderPath = "\archived", ## default value of archived folders to be created
+        [String]$MasterListFolderPath = ".", ## default value of master list folder location, "." puts file into same folder as .ps1 file
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master list text file location
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
@@ -102,12 +102,13 @@ function Invoke-DBCompressScript {
     }
     
     $PathChildFolders = Get-ChildItem -Path $Path -Directory | Where-Object {$_.Name -match "d8c"} 
-    foreach ($dbdumpFolderPath in $PathChildFolders) { ## get the dbdump folder in each d8c repo folder 
-        if ( -Not (Get-ChildItem -Path $dbdumpFolderPath.FullName -Directory | Where-Object {$_.Name -like $dbDumpString} )) {
-            throw 'There is no ' + $dbDumpString + ' folder in the path: ' + $dbdumpFolderPath.FullName
+    foreach ($d8cRepoFolder in $PathChildFolders) { ## get the dbdump folder in each d8c repo folder 
+        # check if dbdump folder exists in each repo
+        if ( -Not (Get-ChildItem -Path $d8cRepoFolder.FullName -Directory | Where-Object {$_.Name -like $dbDumpString} )) {
+            throw 'There is no ' + $dbDumpString + ' folder in the path: ' + $d8cRepoFolder.FullName
         }
         else { 
-            $d8cChildFolders = Get-ChildItem -Path $dbdumpFolderPath.FullName -Directory | Where-Object {$_.Name -like $dbDumpString}
+            $d8cChildFolders = Get-ChildItem -Path $d8cRepoFolder.FullName -Directory | Where-Object {$_.Name -like $dbDumpString} ## get 
             $dbdumpChildFolders =  Get-ChildItem -Path $d8cChildFolders.FullName -Directory | Where-Object {$_.Name -match "its"}
             # get the its### folders in each dbdump folder
             foreach ($itsFolderName in $dbdumpChildFolders) { ## get each its folder in the dbdump folder from each d8c repo folder
@@ -152,7 +153,7 @@ function Invoke-DBCompressScript {
                 # Save the list of files in its### folder so we can examine each one individually
                 $itsChildFiles = Get-ChildItem -Path $itsFolderFullPath | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in its### folder
                 # Format files in each $itsFolder that match $SQLFileExtenion 
-                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $itsFolderName folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
+                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add each $SQLFileExtension file info to $MasterListFilePath
                 }
@@ -171,7 +172,7 @@ function Invoke-DBCompressScript {
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
                 }
                 # Format files in $ArchivedFullPath 
-                $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $itsFolderName folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
+                $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
                 }
@@ -213,4 +214,4 @@ function Invoke-DBCompressScript {
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
 #-Path ".\testStructures\Drupal 8 Dump"
-Invoke-DBCompressScript  -SQLFileExtension ".sql"
+Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
