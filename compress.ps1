@@ -53,7 +53,7 @@ Currently the script throws an unexpected exception when it first tries to write
 #>
 
 <# Task 7:
-- Expand how the script traverses through file directories to closer mimic Jenkins directory structure
+- Expand how the script traverses through file directories to closer mimic Jenkins directory structure 
 #>
 
 function Invoke-DBCompressScript {
@@ -67,20 +67,14 @@ function Invoke-DBCompressScript {
             return $true
             })]
         # Parameters
-
-                # Need to add default values for archived folder to be injected into its respective its folder
-
-
-
         [System.IO.FileInfo]$Path = "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\DB-Dump-Compression\testStructures\Drupal 8 Dumps", # $path is the most parent folder of file structure
-        [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder, this is within a specific repo
+        [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder within a specific repo
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folder
         [String]$MasterListFolderPath = "C:\Users\ajs573\Documents\DB-Dump-Compression-Repo\DB-Dump-Compression\testStructures\Masterlist-Output", ## default value of master list folder location
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master list text file location
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
-    #$dbDumpFullPath = $Path.toString() + $DBDumpFolderPath ## $dbDumpFullPath is the full path name for the dbdump folder
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
 
     # Test the $MasterListFolderPath  to determine script output behavior  
@@ -97,6 +91,16 @@ function Invoke-DBCompressScript {
         $MasterListValid = $false
     } 
 
+    # #Get every original files in $Path
+    $OutputText = Get-ChildItem -Path $Path -File -Recurse | Format-Table -HideTableHeaders FullName -AutoSize 
+    # $MasterListValid boolean value determines where all files in $Path are outputted 
+    if ($MasterListValid) {
+        $OutputText | out-file $MasterListFilePath -append 
+    }
+    else {
+        Write-Output ($OutputText | Out-String)
+    }
+    
     $PathChildFolders = Get-ChildItem -Path $Path -Directory | Where-Object {$_.Name -match "d8c"} 
     foreach ($dbdumpFolderPath in $PathChildFolders) { ## get the dbdump folder in each d8c repo folder 
         if ( -Not (Get-ChildItem -Path $dbdumpFolderPath.FullName -Directory | Where-Object {$_.Name -like $dbDumpString} )) {
@@ -107,6 +111,8 @@ function Invoke-DBCompressScript {
             $dbdumpChildFolders =  Get-ChildItem -Path $d8cChildFolders.FullName -Directory | Where-Object {$_.Name -match "its"}
             # get the its### folders in each dbdump folder
             foreach ($itsFolderName in $dbdumpChildFolders) { ## get each its folder in the dbdump folder from each d8c repo folder
+                # Set full path of each its### folder equal to $itsFolderFullPath
+                $itsFolderFullPath = $itsFolderName.Fullname
                 #  Get-FriendlySize function to get human-readable file size format for $MasterList output
                 function Get-FriendlySize {
                     # Write-Debug messages commented out for usability purposes
@@ -123,37 +129,28 @@ function Invoke-DBCompressScript {
                     $N=0 
                     } "{0:N$($N)} {1}" -f $Bytes, $sizes[$i] 
                 }
-                
-                $itsname = $itsFolderName.Fullname
-                # #Get every original files in $dbDumpFullPath
-                # $OutputText = Get-ChildItem -Path $itsname -File | Format-Table -HideTableHeaders FullName -AutoSize 
-                # # $MasterListValid boolean value determines where $itsFolder files are outputted 
-                # if ($MasterListValid) {
-                #     $OutputText | out-file $MasterListFilePath -append 
-                # }
-                # else {
-                #     Write-Output ($OutputText | Out-String)
-                # }
-                
                 # Handle .sql and sql inputs for $SQLFileExtension
                 if (-Not ($SQLFileExtension | Where-Object {($_ -like ".sql") -or ($_ -like "sql")})) {
-                    Write-Debug ('The ' + $SQLFileExtension + ' file extension is not correct')
+                    Write-Debug ('The ' + $SQLFileExtension + ' file extension is not correct.')
                     # exit
                 }  
                 # Archived folder variables
-                $ArchivedFullPath = $itsname.toString() + $ArchivedFolderPath ## $ArchivedFullPath is the full path name for the archived folder
+                $ArchivedFullPath = $itsFolderFullPath.toString() + $ArchivedFolderPath ## $ArchivedFullPath is the full path name for the archived folder
                 $ArchivedFolderName = $ArchivedFolderPath.Substring(1) ## $ArchivedFolderName removes '/' from /archived string
                 
-                # Check if an "archived" folder already exists in the its### folder, if not, create one
+                # Check if an "archived" folder already exists in each its### folder, if not, create one
                 if (-not (Test-Path -Path $ArchivedFullPath)) {
-                    New-Item -Path $itsname -Name $ArchivedFolderName -ItemType "directory" -Force ## Create archived folder 
+                    Write-Debug "-------------"
+                    Write-Debug "Creating new $ArchivedFolderName folder at location: $ArchivedFullPath"
+                    New-Item -Path $itsFolderFullPath -Name $ArchivedFolderName -ItemType "directory" -Force | Out-Null 
                 } 
                 else {
-                    Write-Debug ('The ' + $ArchivedFolderName + ' folder already exists. Path: ' + $ArchivedFullPath)
+                    Write-Debug "-------------"
+                    Write-Debug "The $ArchivedFolderName folder already exists in $itsFolderFullPath"
                 }
 
                 # Save the list of files in its### folder so we can examine each one individually
-                $itsChildFiles = Get-ChildItem -Path $itsname | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in its### folder
+                $itsChildFiles = Get-ChildItem -Path $itsFolderFullPath | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in its### folder
                 # Format files in each $itsFolder that match $SQLFileExtenion 
                 $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $itsFolderName folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
                 if ($MasterListValid) {
@@ -163,13 +160,13 @@ function Invoke-DBCompressScript {
                     Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
                 }
                 
-                # Run through each file in its###
+                # Run through each file in its### folder
                 foreach ($file in $itsChildFiles) {
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
                     Write-Debug "-------------"
                     Write-Debug " Zipping file '$($file.Name)' to folder '$($ArchivedFullPath)'"
-                    Write-Debug " Path to file to zip: '$($file.FullName)'"
+                    Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
                 }
@@ -190,27 +187,29 @@ function Invoke-DBCompressScript {
         Write-Debug "Opening the file: $($MasterListFilePath)..."
         Invoke-Item $MasterListFilePath  
     }
-    <#ReverseCreatedItems function used to deleted archived folders and master list text file for script testing purposes
+    #ReverseCreatedItems function used to deleted archived folders and master list text file for script testing purposes
+    Write-Debug "-------------"
     Write-Debug "For testing purposes:"
-    Write-Debug "Enter 1 to delete archived folder and master list."
+    Write-Debug "Enter 1 to delete all newly created archived folders and the master list."
     Write-Debug "Enter any other value to end script."
     $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter your value'
     function ReverseCreatedItems {
-        Write-Debug "Removing folder: $ArchivedFullPath"
-        Remove-Item -Path $ArchivedFullPath -recurse
+        Write-Debug "All $($ArchivedFolderName) folders removed."
+        Get-ChildItem $Path -recurse | Where-Object {$_.extension -match ".zip"} | ForEach-Object { remove-item $_.FullName -force}
+        Get-ChildItem $Path -recurse | Where-Object {$_.name -like $ArchivedFolderName} | ForEach-Object { remove-item $_.FullName -force}
         if ($MasterListValid) {
-            Write-Debug "Removing text file: $MasterListFilePath"
+            Write-Debug "Removing file: $MasterListFilePath"
             Remove-Item -Path $MasterListFilePath -include *.txt
         }  
     }
     if ($ReverseCreatedItemsParam -eq 1) {
         ReverseCreatedItems
-        return "The $($MyInvocation.MyCommand) script has terminated"
+        return "The $($MyInvocation.MyCommand) script has terminated."
     } 
     else {
         Write-Debug "No folders or files were deleted"
-        return "The $($MyInvocation.MyCommand) script has terminated"
-    }#>
+        return "The $($MyInvocation.MyCommand) script has terminated."
+    }
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
 #-Path ".\testStructures\Drupal 8 Dump"
