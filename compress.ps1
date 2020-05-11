@@ -1,6 +1,6 @@
 <# Alan Shindelman
 PowerShell DB Dump Compression Script
-May 6th 2020
+Started: April 13th, 2020
 #>
 
 <# Task 1: (Completed)
@@ -81,7 +81,7 @@ function Invoke-DBCompressScript {
     # If $MasterListFolderPath  is valid, use Out-File command 
     # If $MasterListFolderPath  is not valid, output Format-Table into console
     if (Test-Path -Path $MasterListFolderPath) {
-        Write-Debug "The master list folder path: $($MasterListFolderPath) is valid."
+        Write-Debug "The master list folder path: $($Path.FullName)\ is valid."
         Write-Debug "Script output will be sent to $($MasterListFilePath)"
         $MasterListValid = $true
     }
@@ -101,7 +101,7 @@ function Invoke-DBCompressScript {
         Write-Output ($OutputText | Out-String)
     }
     
-    $PathChildFolders = Get-ChildItem -Path $Path -Directory | Where-Object {$_.Name -match "d8c"} 
+    $PathChildFolders = Get-ChildItem -Path $Path -Directory | Where-Object {$_.Name -match "d8c"}
     foreach ($d8cRepoFolder in $PathChildFolders) { ## get the dbdump folder in each d8c repo folder 
         # check if dbdump folder exists in each repo
         if ( -Not (Get-ChildItem -Path $d8cRepoFolder.FullName -Directory | Where-Object {$_.Name -like $dbDumpString} )) {
@@ -202,6 +202,17 @@ function Invoke-DBCompressScript {
             Write-Debug "Removing file: $MasterListFilePath"
             Remove-Item -Path $MasterListFilePath -include *.txt
         }  
+        else {
+            # Write-Debug "No Master list created... "
+            # Write-Debug "Do you want to remove any instance of a Master List?"
+            # $MasterListDelete = Read-Host -Prompt 'Enter 1 to delete. Any other value to cancel'
+            # if ($MasterListDelete -eq 1)
+            # {
+            #     $MasterListString = $MasterListFilePath.Substring(1)
+            #     Remove-Item -Path $Path | Where-Object {$_ -match $MasterListString}
+                
+            
+        }
     }
     if ($ReverseCreatedItemsParam -eq 1) {
         ReverseCreatedItems
