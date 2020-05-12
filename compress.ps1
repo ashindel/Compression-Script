@@ -1,6 +1,7 @@
 <# Alan Shindelman
 PowerShell DB Dump Compression Script
 Started: April 13th, 2020
+More task information can be found at: https://docs.google.com/document/d/1cllxJOYWe3tGzf92XFtGpHVJ1NPz4CEbb_xrRGby8QI/edit?usp=sharing 
 #>
 
 <# Task 1: (Completed)
@@ -22,12 +23,12 @@ Started: April 13th, 2020
 <# Task 3: (Completed)
 - Extend the script you wrote for task 2 by using PowerShell to compress every file your script found into the .zip file format.
 - Have the .zip files placed into a new folder called "archived"
-- In addition to writing the list of files to that master-list.txt, the script will have generated .zip files for each file it found and add them to the master list
+- In addition to writing the list of files to that master-list.txt, the script will have generated .zip files for each file it found and add them to the Master List
 #>
 
 <# Task 3.5: (Completed)
     - Fix errors when running script again 
-    - Add full path names to the appended master list, second iteration changes file path output in $Masterlist
+    - Add full path names to the appended Master List, second iteration changes file path output in $Masterlist
 #>
 
 <# Task 4: (Completed)
@@ -52,8 +53,15 @@ Handle -FileExtension ".sql" and -FileExtension "sql" gracefully. In other words
 Currently the script throws an unexpected exception when it first tries to write to $MasterList (line 104 Out-File).
 #>
 
-<# Task 7:
+<# Task 7: (Completed)
 - Expand how the script traverses through file directories to closer mimic Jenkins directory structure 
+#>
+
+<# Task 8:
+- Script should archive every file except the most-recently-modified file. 
+    - Determine which files to archive based on the "Date Modified" field of file. 
+- Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays
+- Delete all matching sql files after .zip/copy was created
 #>
 
 function Invoke-DBCompressScript {
@@ -71,8 +79,8 @@ function Invoke-DBCompressScript {
         [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder within a specific repo
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folders to be created
-        [String]$MasterListFolderPath = ".", ## default value of master list folder location, "." puts file into same folder as .ps1 file
-        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master list text file location
+        [String]$MasterListFolderPath = ".", ## default value of Master List folder location, "." puts file into same folder as .ps1 file
+        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master List text file location
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
@@ -81,16 +89,15 @@ function Invoke-DBCompressScript {
     # If $MasterListFolderPath  is valid, use Out-File command 
     # If $MasterListFolderPath  is not valid, output Format-Table into console
     if (Test-Path -Path $MasterListFolderPath) {
-        Write-Debug "The master list folder path: $($Path.FullName)\ is valid."
+        Write-Debug "The Master List folder path: $($Path.FullName)\ is valid."
         Write-Debug "Script output will be sent to $($MasterListFilePath)"
         $MasterListValid = $true
     }
     else {
-        Write-Debug "The master list folder path: $($MasterListFolderPath) is not valid."
+        Write-Debug "The Master List folder path: $($MasterListFolderPath) is not valid."
         Write-Debug "Script output will be sent to the console."
         $MasterListValid = $false
     } 
-
     # #Get every original files in $Path
     $OutputText = Get-ChildItem -Path $Path -File -Recurse | Format-Table -HideTableHeaders FullName -AutoSize 
     # $MasterListValid boolean value determines where all files in $Path are outputted 
@@ -133,7 +140,6 @@ function Invoke-DBCompressScript {
                 # Handle .sql and sql inputs for $SQLFileExtension
                 if (-Not ($SQLFileExtension | Where-Object {($_ -like ".sql") -or ($_ -like "sql")})) {
                     Write-Debug ('The ' + $SQLFileExtension + ' file extension is not correct.')
-                    # exit
                 }  
                 # Archived folder variables
                 $ArchivedFullPath = $itsFolderFullPath.toString() + $ArchivedFolderPath ## $ArchivedFullPath is the full path name for the archived folder
@@ -182,38 +188,43 @@ function Invoke-DBCompressScript {
             }
         }
     }
-    # open the master list text file if applicable
+    # open the Master List text file if applicable
     if ($MasterListValid) {
         Write-Debug "-------------"
         Write-Debug "Opening the file: $($MasterListFilePath)..."
         Invoke-Item $MasterListFilePath  
     }
-    #ReverseCreatedItems function used to deleted archived folders and master list text file for script testing purposes
+    #ReverseCreatedItems function used to delete archived folders and Master List text file for script testing purposes
     Write-Debug "-------------"
     Write-Debug "For testing purposes:"
-    Write-Debug "Enter 1 to delete all newly created archived folders and the master list."
+    Write-Debug "Enter 1 to delete all newly created archived folders and the Master List."
     Write-Debug "Enter any other value to end script."
     $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter your value'
     function ReverseCreatedItems {
         Write-Debug "All $($ArchivedFolderName) folders removed."
         Get-ChildItem $Path -recurse | Where-Object {$_.extension -match ".zip"} | ForEach-Object { remove-item $_.FullName -force}
         Get-ChildItem $Path -recurse | Where-Object {$_.name -like $ArchivedFolderName} | ForEach-Object { remove-item $_.FullName -force}
+        # if the Master List path is valid, remove the file 
         if ($MasterListValid) {
             Write-Debug "Removing file: $MasterListFilePath"
             Remove-Item -Path $MasterListFilePath -include *.txt
         }  
+        # if the Master List path is not valid, prompt user to remove any instance of a Master List
         else {
-            # Write-Debug "No Master list created... "
-            # Write-Debug "Do you want to remove any instance of a Master List?"
-            # $MasterListDelete = Read-Host -Prompt 'Enter 1 to delete. Any other value to cancel'
-            # if ($MasterListDelete -eq 1)
-            # {
-            #     $MasterListString = $MasterListFilePath.Substring(1)
-            #     Remove-Item -Path $Path | Where-Object {$_ -match $MasterListString}
-                
-            
+            Write-Debug "No Master List was created... "
+            Write-Debug "Do you want to remove any instance of a Master List?"
+            $MasterListDelete = Read-Host -Prompt 'Enter 1 to delete. Any other value to cancel'
+            if ($MasterListDelete -eq 1) {
+                $MostParentPath = (Get-Item $Path).parent.parent.FullName
+                Write-Debug "Deleting Master List at location: $($MostParentPath)"
+                Get-ChildItem $MostParentPath | Where-Object {$_.name -match "text-output"} | ForEach-Object { remove-item $_.FullName -force}
+            }
+            else {
+                Write-Debug "No $($MasterListString) deleted"
+            }
         }
     }
+    # Execute ReverseCreatedItems function is user value equals "1"
     if ($ReverseCreatedItemsParam -eq 1) {
         ReverseCreatedItems
         return "The $($MyInvocation.MyCommand) script has terminated."
@@ -224,5 +235,4 @@ function Invoke-DBCompressScript {
     }
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
-#-Path ".\testStructures\Drupal 8 Dump"
 Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
