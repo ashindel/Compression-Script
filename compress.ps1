@@ -172,6 +172,14 @@ function Invoke-DBCompressScript {
 
                 # Run through each file in its### folder
                 foreach ($file in $itsChildFiles) {
+                    # Last $file in each its### folder for-loop iteration is not compressed because it is the most recently modified file
+                    if ($file -eq $itsChildFiles[-1]) {
+                        Write-Debug "-------------"
+                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is the most recently modified file."
+                        Write-Debug "$($file) will not be compressed."
+                        break
+                    }
+                    # $LastFileinList equals most recently modified file in each its### folder
                     $LastFileinList = $itsChildFiles[-1]
                     # This is the most recently modified file date
                     $MostRecentFile = (Get-Item -Path $LastFileinList.FullName).LastWriteTime
@@ -187,13 +195,6 @@ function Invoke-DBCompressScript {
                         break
                     }
                     
-                    # Last $file in each its### folder for-loop iteration is not compressed because it is the most recently modified file
-                    if ($file -eq $itsChildFiles[-1]) {
-                        Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is the most recently modified file."
-                        Write-Debug "$($file) will not be compressed."
-                        break
-                    }
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
                     Write-Debug "-------------"
