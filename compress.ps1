@@ -80,12 +80,13 @@ function Invoke-DBCompressScript {
         [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder within a specific repo
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folders to be created
-        [String]$MasterListFolderPath = "22", ## default value of Master List folder location, "." puts file into same folder as .ps1 file
+        [String]$MasterListFolderPath = ".", ## default value of Master List folder location, "." puts file into same folder as .ps1 file
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt",  ## Master List text file location
-        [int]$ArchiveDateLimitInDays = -1
+        [int]$ArchiveDateLimitInDays = 1
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
+    $ArchiveDateLimitInDaysNeg = ($ArchiveDateLimitInDays * -1) ## make variable negative to use in $fileDateCompare test
 
     # Test the $MasterListFolderPath  to determine script output behavior  
     # If $MasterListFolderPath  is valid, use Out-File command 
@@ -175,7 +176,7 @@ function Invoke-DBCompressScript {
                     # This is the most recently modified file date
                     $MostRecentFile = (Get-Item -Path $LastFileinList.FullName).LastWriteTime
                     # $fileDateCompare gets 1 day less than most recently modified file
-                    $fileDateCompare = (Get-Date $MostRecentFile).AddDays($ArchiveDateLimitInDays)
+                    $fileDateCompare = (Get-Date $MostRecentFile).AddDays($ArchiveDateLimitInDaysNeg)
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime
                     
                     # If $file date modified is less than one day old from the most recently modified $file, then do not compress
