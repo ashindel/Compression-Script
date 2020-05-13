@@ -62,6 +62,7 @@ Currently the script throws an unexpected exception when it first tries to write
     - Determine which files to archive based on the "Date Modified" field of file. 
 - Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays
 - Delete all matching sql files after .zip/copy was created
+- Challenge: Add Y/N column to pre-zipped output that shows which files were and were not zipped (user friendly task)
 #>
 
 function Invoke-DBCompressScript {
@@ -79,8 +80,9 @@ function Invoke-DBCompressScript {
         [String]$DBDumpFolderName = "\dbdump", ## default value of dbdump folder within a specific repo
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folders to be created
-        [String]$MasterListFolderPath = ".", ## default value of Master List folder location, "." puts file into same folder as .ps1 file
-        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt"  ## Master List text file location
+        [String]$MasterListFolderPath = "22", ## default value of Master List folder location, "." puts file into same folder as .ps1 file
+        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt",  ## Master List text file location
+        [int]$ArchiveDateLimitInDays = -1
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
@@ -137,7 +139,7 @@ function Invoke-DBCompressScript {
                     $N=0 
                     } "{0:N$($N)} {1}" -f $Bytes, $sizes[$i] 
                 }
-                # Handle .sql and sql inputs for $SQLFileExtension
+                # Handle .sql and sql inputs for $SQLFileExtension, script continues execution regardless of input
                 if (-Not ($SQLFileExtension | Where-Object {($_ -like ".sql") -or ($_ -like "sql")})) {
                     Write-Debug ('The ' + $SQLFileExtension + ' file extension is not correct.')
                 }  
@@ -157,18 +159,40 @@ function Invoke-DBCompressScript {
                 }
 
                 # Save the list of files in its### folder so we can examine each one individually
-                $itsChildFiles = Get-ChildItem -Path $itsFolderFullPath | Where-Object {$_.extension -match $SQLFileExtension} ## Get .sql files in its### folder
+                $itsChildFiles = Get-ChildItem -Path $itsFolderFullPath | Where-Object {$_.extension -match $SQLFileExtension} | Sort-Object -Property LastWriteTime ## Get .sql files in its### folder and sort by most recently modified at bottom of list
                 # Format files in each $itsFolder that match $SQLFileExtenion 
-                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, CreationTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
+                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, LastWriteTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add each $SQLFileExtension file info to $MasterListFilePath
                 }
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
                 }
-                
+
                 # Run through each file in its### folder
                 foreach ($file in $itsChildFiles) {
+                    $LastFileinList = $itsChildFiles[-1]
+                    # This is the most recently modified file date
+                    $MostRecentFile = (Get-Item -Path $LastFileinList.FullName).LastWriteTime
+                    # $fileDateCompare gets 1 day less than most recently modified file
+                    $fileDateCompare = (Get-Date $MostRecentFile).AddDays($ArchiveDateLimitInDays)
+                    $fileTest = (Get-Item -Path $File.FullName).LastWriteTime
+                    
+                    # If $file date modified is less than one day old from the most recently modified $file, then do not compress
+                    if ($fileTest -gt $fileDateCompare) {
+                        Write-Debug "-------------"
+                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old."
+                        Write-Debug "$($file) will not be compressed."
+                        break
+                    }
+                    
+                    # Last $file in each its### folder for-loop iteration is not compressed because it is the most recently modified file
+                    if ($file -eq $itsChildFiles[-1]) {
+                        Write-Debug "-------------"
+                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is the most recently modified file."
+                        Write-Debug "$($file) will not be compressed."
+                        break
+                    }
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
                     Write-Debug "-------------"
@@ -185,6 +209,8 @@ function Invoke-DBCompressScript {
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $ArchivedFullPath files to console 
                 }
+                # Remove original sql files 
+                # <code>
             }
         }
     }
@@ -199,28 +225,28 @@ function Invoke-DBCompressScript {
     Write-Debug "For testing purposes:"
     Write-Debug "Enter 1 to delete all newly created archived folders and the Master List."
     Write-Debug "Enter any other value to end script."
-    $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter your value'
+    $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter value'
     function ReverseCreatedItems {
         Write-Debug "All $($ArchivedFolderName) folders removed."
         Get-ChildItem $Path -recurse | Where-Object {$_.extension -match ".zip"} | ForEach-Object { remove-item $_.FullName -force}
         Get-ChildItem $Path -recurse | Where-Object {$_.name -like $ArchivedFolderName} | ForEach-Object { remove-item $_.FullName -force}
-        # if the Master List path is valid, remove the file 
+        # If the Master List path is valid, remove the file 
         if ($MasterListValid) {
             Write-Debug "Removing file: $MasterListFilePath"
             Remove-Item -Path $MasterListFilePath -include *.txt
         }  
-        # if the Master List path is not valid, prompt user to remove any instance of a Master List
+        # If the Master List path is not valid, prompt user to remove any instance of a Master List
         else {
             Write-Debug "No Master List was created... "
             Write-Debug "Do you want to remove any instance of a Master List?"
-            $MasterListDelete = Read-Host -Prompt 'Enter 1 to delete. Any other value to cancel'
+            $MasterListDelete = Read-Host -Prompt 'Enter 1 for Yes. Any other value to cancel'
             if ($MasterListDelete -eq 1) {
                 $MostParentPath = (Get-Item $Path).parent.parent.FullName
                 Write-Debug "Deleting Master List at location: $($MostParentPath)"
                 Get-ChildItem $MostParentPath | Where-Object {$_.name -match "text-output"} | ForEach-Object { remove-item $_.FullName -force}
             }
             else {
-                Write-Debug "No $($MasterListString) deleted"
+                Write-Debug "No Master List was deleted."
             }
         }
     }
@@ -236,3 +262,4 @@ function Invoke-DBCompressScript {
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
 Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
+

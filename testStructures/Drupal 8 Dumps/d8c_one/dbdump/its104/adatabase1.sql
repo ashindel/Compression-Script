@@ -1,4 +1,5 @@
-Test what happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
+Test what 
+ happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
 Handle -FileExtension ".sql" and -FileExtension "sql" gracefully. In other words, the script should behave the same way with both of those. Test what happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
 Handle -FileExtension ".sql" and -FileExtension "sql" gracefully. In other words, the script should behave the same way with both of those. Test what happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
 Handle -FileExtension ".sql" and -FileExtension "sql" gracefully. In other words, the script should behave the same way with both of those. Test what happens when the $FileExtension parameter does not include the "." for example Find-Path -FileExtension "sql".
