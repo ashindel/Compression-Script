@@ -182,12 +182,12 @@ function Invoke-DBCompressScript {
                         break
                     }
 
-                    # $MostRecentFile is the most recently modified file date modified property
+                    # $MostRecentFile is the most recently modified file's "date modified" property
                     $MostRecentFile = (Get-Item -Path $LastFileinList.FullName).LastWriteTime
-                    # $fileDateCompare is set to # day(s) less than most recently modified file
+                    # $fileDateCompare is set to # day(s) less than most recently modified file's "date modified" property value
                     $fileDateCompare = (Get-Date $MostRecentFile).AddDays($ArchiveDateLimitInDaysNeg)
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime
-                    # If $file date modified is less than one day old from the most recently modified file ($LastFileinList), then do not compress
+                    # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
                     if ($fileTest -gt $fileDateCompare) {
                         Write-Debug "-------------"
                         Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old."
@@ -202,17 +202,21 @@ function Invoke-DBCompressScript {
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
+
+                    # Remove original $file
+                    $fileFullPath = $file.Fullname
+                    Write-Debug "-------------"
+                    Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
+                    Remove-Item $fileFullPath
                 }
                 # Format files in $ArchivedFullPath 
                 $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
-                    $output
                 }
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $ArchivedFullPath files to console 
                 }
-                
             }
         }
     }
