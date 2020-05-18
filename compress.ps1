@@ -60,7 +60,7 @@ Currently the script throws an unexpected exception when it first tries to write
 <# Task 8:
 - Script should archive every file except the most-recently-modified file. 
     - Determine which files to archive based on the "Date Modified" field of file. 
-- Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays
+- Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays 
 - Delete all matching sql files after .zip/copy was created
 - Challenge: Add Y/N column to pre-zipped output that shows which files were and were not zipped (user friendly task)
 #>
@@ -82,11 +82,11 @@ function Invoke-DBCompressScript {
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folders to be created
         [String]$MasterListFolderPath = ".", ## default value of Master List folder location
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt",  ## Master List text file location
-        [int]$ArchiveDateLimitInDays = 1 ## default value for the # of day(s) a $file's "date modified" value  to determine whether or not the file is compressed
+        [int]$ArchiveDateLimitInDays = 1 ## default value for the # of day(s) a $file's "date modified" value will be tested against to determine if compression occurs 
     )
     $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
-    $ArchiveDateLimitInDaysNeg = ($ArchiveDateLimitInDays * -1) ## make variable value negative to use in $fileDateCompare test
+    $ArchiveDateLimitInDaysNeg = ($ArchiveDateLimitInDays * 24 * 60 * 60 * 1000 * -1) ## convert to ArchiveDateLimitInDays value to negative milliseconds to use in $fileDateCompare test
 
     # Test the $MasterListFolderPath  to determine script output behavior  
     # If $MasterListFolderPath  is valid, use Out-File command 
@@ -110,7 +110,8 @@ function Invoke-DBCompressScript {
     else {
         Write-Output ($OutputText | Out-String)
     }
-    
+
+    # get the d8c folders in $path
     $PathChildFolders = Get-ChildItem -Path $Path -Directory | Where-Object {$_.Name -match "d8c"}
     foreach ($d8cRepoFolder in $PathChildFolders) { ## get the dbdump folder in each d8c repo folder 
         # check if dbdump folder exists in each repo
@@ -181,19 +182,25 @@ function Invoke-DBCompressScript {
                         Write-Debug "$($file) will not be compressed."
                         break
                     }
-
+                    
                     # $MostRecentFile is the most recently modified file's "date modified" property
-                    $MostRecentFile = (Get-Item -Path $LastFileinList.FullName).LastWriteTime
+                    $CurrentTime = Get-Date #-Format HH:mm:ss.fff
                     # $fileDateCompare is set to # day(s) less than most recently modified file's "date modified" property value
-                    $fileDateCompare = (Get-Date $MostRecentFile).AddDays($ArchiveDateLimitInDaysNeg)
+                    $fileDateCompare = (Get-Date $CurrentTime).AddMilliseconds($ArchiveDateLimitInDaysNeg)
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime
+                    # Write-Debug $CurrentTime
+                    # Write-Debug $fileDateCompare
+                    # Write-Debug $fileTest
+                    
+                    
                     # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
                     if ($fileTest -gt $fileDateCompare) {
                         Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old."
+                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this scrip"
                         Write-Debug "$($file) will not be compressed."
                         break
                     }
+                    
                     
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
@@ -203,11 +210,18 @@ function Invoke-DBCompressScript {
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
 
-                    # Remove original $file
+                    # Remove original $file if archived-file exists
                     $fileFullPath = $file.Fullname
-                    Write-Debug "-------------"
-                    Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
-                    Remove-Item $fileFullPath
+                    If (Test-Path $zipFileDestinationPath) {
+                        Write-Debug "-------------"
+                        Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
+                        Remove-Item $fileFullPath             
+                    }
+                    else {
+                        Write-Debug "-------------"
+                        Write-Debug "Could not find $($zipFileDestinationPath)"
+                        Write-Debug "$($file) could not be removed."
+                    }
                 }
                 # Format files in $ArchivedFullPath 
                 $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
