@@ -170,9 +170,28 @@ function Invoke-DBCompressScript {
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
                 }
+                # adding yes or no column would require appending a column after the following logic to the original table ...is this possible?
 
                 # Run through each file in its### folder
                 foreach ($file in $itsChildFiles) {
+                    # need to add test to find most recent number and not compress that as failsafe
+                    # if ($file -match "\d+") {
+                    #     $matches.value
+                    # }
+                    # $largestFileNum = 0
+                    # foreach ($number in $TheFile)
+                    # {
+                    #     if ([Double]$matches -gt $largestFileNum)
+                    #     {
+                    #         $largestFileNum = $number
+                    #     }
+                    # }
+                    # foreach file in its folder {
+                    #     if the files number found in its name is greater than the next file then
+                    #     add it to a variable tracking that number variable
+                    #     then once looping through all the files in a folder, do not compress the file that had the greatest value (as found in other variable?)
+                    # }
+
                     # $LastFileinList equals most recently modified file in each its### folder
                     $LastFileinList = $itsChildFiles[-1]
                     # Last $file in each its### folder for-loop iteration is not compressed because it is the most recently modified file
@@ -187,20 +206,15 @@ function Invoke-DBCompressScript {
                     $CurrentTime = Get-Date #-Format HH:mm:ss.fff
                     # $fileDateCompare is set to # day(s) less than most recently modified file's "date modified" property value
                     $fileDateCompare = (Get-Date $CurrentTime).AddMilliseconds($ArchiveDateLimitInDaysNeg)
-                    $fileTest = (Get-Item -Path $File.FullName).LastWriteTime
-                    # Write-Debug $CurrentTime
-                    # Write-Debug $fileDateCompare
-                    # Write-Debug $fileTest
-                    
+                    $fileTest = (Get-Item -Path $File.FullName).LastWriteTime                  
                     
                     # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
                     if ($fileTest -gt $fileDateCompare) {
                         Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this scrip"
+                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
                         Write-Debug "$($file) will not be compressed."
                         break
                     }
-                    
                     
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
@@ -209,6 +223,22 @@ function Invoke-DBCompressScript {
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
+                    
+                    # Index or loop over original format table? (see bookmarks)
+                    # Need to move the append outfile to the beginning of the for loop before other logic kicks in, maybe?
+                    # if (Test-Path $zipFileDestinationPath) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "TEST - YES"
+                    #     $Yes = "Y"
+                    #     $file | Format-Table @{N="To be Zipped? (Y/N)?";E={$Yes}} -AutoSize | Out-File -Update $MasterListFilePath
+                    # }
+                    # else {
+                    #     $No = "N"
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "TEST - YES"
+                    #     Format-Table @{N="Y/N file zipped?";E={$No}} -AutoSize -append
+                    # }
+
 
                     # Remove original $file if archived-file exists
                     $fileFullPath = $file.Fullname
