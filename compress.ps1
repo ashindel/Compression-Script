@@ -61,8 +61,10 @@ Currently the script throws an unexpected exception when it first tries to write
 - Script should archive every file except the most-recently-modified file. 
     - Determine which files to archive based on the "Date Modified" field of file. 
 - Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays 
-- Delete all matching sql files after .zip/copy was created
+    - Use current time as an additional parameter to stop compression for recently created files
+- Delete all matching original sql files after .zip/copy was created
 - Challenge: Add Y/N column to pre-zipped output that shows which files were and were not zipped (user friendly task)
+- Challenge: Add fail-safe to not zip most recently created file by parsing each file #
 #>
 
 function Invoke-DBCompressScript {
@@ -163,33 +165,43 @@ function Invoke-DBCompressScript {
                 # Save the list of files in its### folder so we can examine each one individually
                 $itsChildFiles = Get-ChildItem -Path $itsFolderFullPath | Where-Object {$_.extension -match $SQLFileExtension} | Sort-Object -Property LastWriteTime ## Get .sql files in its### folder and sort by most recently modified at bottom of list
                 # Format files in each $itsFolder that match $SQLFileExtenion 
-                $OutputText = $itsChildFiles | Format-Table @{N="$SQLFileExtension files in $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, LastWriteTime, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} -AutoSize 
+                $OutputText = $itsChildFiles | Format-Table @{
+                    N="$SQLFileExtension files in $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder"; E={$_.name}},
+                    LastWriteTime, 
+                    @{N='File Size'; E={Get-FriendlySize -Bytes $_.Length}
+                } -AutoSize 
                 if ($MasterListValid) {
                     $OutputText | Out-File -append $MasterListFilePath ## Add each $SQLFileExtension file info to $MasterListFilePath
                 }
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
                 }
-                # adding yes or no column would require appending a column after the following logic to the original table ...is this possible?
-
-                # Run through each file in its### folder
+                
+                
+                # Run through each file in its### folder 
                 foreach ($file in $itsChildFiles) {
-                    # need to add test to find most recent number and not compress that as failsafe
-                    # if ($file -match "\d+") {
-                    #     $matches.value
-                    # }
-                    # $largestFileNum = 0
-                    # foreach ($number in $TheFile)
-                    # {
-                    #     if ([Double]$matches -gt $largestFileNum)
-                    #     {
-                    #         $largestFileNum = $number
-                    #     }
-                    # }
+                    # Psuedo code
                     # foreach file in its folder {
                     #     if the files number found in its name is greater than the next file then
                     #     add it to a variable tracking that number variable
                     #     then once looping through all the files in a folder, do not compress the file that had the greatest value (as found in other variable?)
+                    # }
+                    
+                    # $largest = 0
+                    # foreach ($file in $itsChildFiles) {
+                    #     $fileFullName = $file.FullName
+                    #     $fileNum = Get-Item $fileFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a file
+                    #     foreach ($number in $fileNum) {
+                    #         if ($number -gt $largest) {
+                    #             $largest = $number
+                    #             $largest
+                    #         }
+                    #     }
+                    #     # stop loop before compressing if the $fileNum is equal to the largest file number in the list of files per each its### folder
+                    #     if ($fileNum -eq $largest)
+                    #     {
+                    #         break 
+                    #     } 
                     # }
 
                     # $LastFileinList equals most recently modified file in each its### folder
@@ -222,26 +234,22 @@ function Invoke-DBCompressScript {
                     Write-Debug " Zipping file '$($file.Name)' to folder '$($ArchivedFullPath)'"
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
-                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files
+                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files                
                     
                     # Index or loop over original format table? (see bookmarks)
                     # Need to move the append outfile to the beginning of the for loop before other logic kicks in, maybe?
                     # if (Test-Path $zipFileDestinationPath) {
-                    #     Write-Debug "-------------"
-                    #     Write-Debug "TEST - YES"
                     #     $Yes = "Y"
-                    #     $file | Format-Table @{N="To be Zipped? (Y/N)?";E={$Yes}} -AutoSize | Out-File -Update $MasterListFilePath
+                    #     $file | Format-Table @{N="To be Zipped? (Y/N)?";E={$Yes}} -AutoSize | Out-File -Append $MasterListFilePath
                     # }
                     # else {
                     #     $No = "N"
                     #     Write-Debug "-------------"
-                    #     Write-Debug "TEST - YES"
                     #     Format-Table @{N="Y/N file zipped?";E={$No}} -AutoSize -append
                     # }
 
-
                     # Remove original $file if archived-file exists
-                    $fileFullPath = $file.Fullname
+                    $fileFullPath = $file.Fullname ## can move this variable to beginning of for loop as it may be used in earlier code sections (once code is fixed)
                     If (Test-Path $zipFileDestinationPath) {
                         Write-Debug "-------------"
                         Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
