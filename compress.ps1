@@ -57,7 +57,7 @@ Currently the script throws an unexpected exception when it first tries to write
 - Expand how the script traverses through file directories to closer mimic Jenkins directory structure 
 #>
 
-<# Task 8:
+<# Task 8: (Completed, except challenges)
 - Script should archive every file except the most-recently-modified file. 
     - Determine which files to archive based on the "Date Modified" field of file. 
 - Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays 
@@ -65,6 +65,12 @@ Currently the script throws an unexpected exception when it first tries to write
 - Delete all matching original sql files after .zip/copy was created
 - Challenge: Add Y/N column to pre-zipped output that shows which files were and were not zipped (user friendly task)
 - Challenge: Add fail-safe to not zip most recently created file by parsing each file #
+#>
+
+<# Task 9: (Completed)
+- Connect to Jenkins
+- Run test on ITS115 server
+- Waiting on management approval for full deployement 
 #>
 
 function Invoke-DBCompressScript {
@@ -176,43 +182,45 @@ function Invoke-DBCompressScript {
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
                 }
-                
-                
+                # variable for failsafe file number test
+                $largest = 0
                 # Run through each file in its### folder 
                 foreach ($file in $itsChildFiles) {
                     # Psuedo code
                     # foreach file in its folder {
                     #     if the files number found in its name is greater than the next file then
                     #     add it to a variable tracking that number variable
-                    #     then once looping through all the files in a folder, do not compress the file that had the greatest value (as found in other variable?)
+                    #     then once looping through all the files in a folder, do not compress the file that had the greatest value 
                     # }
                     
-                    # $largest = 0
-                    # foreach ($file in $itsChildFiles) {
-                    #     $fileFullName = $file.FullName
-                    #     $fileNum = Get-Item $fileFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a file
-                    #     foreach ($number in $fileNum) {
-                    #         if ($number -gt $largest) {
-                    #             $largest = $number
-                    #             $largest
-                    #         }
-                    #     }
-                    #     # stop loop before compressing if the $fileNum is equal to the largest file number in the list of files per each its### folder
-                    #     if ($fileNum -eq $largest)
-                    #     {
-                    #         break 
-                    #     } 
-                    # }
+                    # challenge to add failsafe based on file with largest number in its name (do not compress this file)
+                    $itsChilsFilesFullName = $itsChildFiles.FullName
+                    $itsChilsFilesFullName
+                    $fileNum = Get-ChildItem $itsChilsFilesFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a filename
+                    $fileNum
+                    Write-debug "------------------------------"
+                    foreach ($number in $fileNum) {
+                        if ($number -gt $largest) {
+                            $largest = $number
+                            $largest
+                        }
+                    }
+                    break
+                    # stop loop before compressing if the $fileNum is equal to the largest file number in the list of files per each its### folder
+                    if ($fileNum -eq $largest) {
+                        break 
+                    } 
+            
 
                     # $LastFileinList equals most recently modified file in each its### folder
                     $LastFileinList = $itsChildFiles[-1]
                     # Last $file in each its### folder for-loop iteration is not compressed because it is the most recently modified file
-                    if ($file -eq $LastFileinList) {
-                        Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is the most recently modified file."
-                        Write-Debug "$($file) will not be compressed."
-                        break
-                    }
+                    # if ($file -eq $LastFileinList) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is the most recently modified file."
+                    #     Write-Debug "$($file) will not be compressed."
+                    #     break
+                    # }
                     
                     # $MostRecentFile is the most recently modified file's "date modified" property
                     $CurrentTime = Get-Date #-Format HH:mm:ss.fff
@@ -221,12 +229,12 @@ function Invoke-DBCompressScript {
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime                  
                     
                     # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
-                    if ($fileTest -gt $fileDateCompare) {
-                        Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
-                        Write-Debug "$($file) will not be compressed."
-                        break
-                    }
+                    # if ($fileTest -gt $fileDateCompare) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
+                    #     Write-Debug "$($file) will not be compressed."
+                    #     break
+                    # }
                     
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
@@ -236,8 +244,8 @@ function Invoke-DBCompressScript {
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files                
                     
-                    # Index or loop over original format table? (see bookmarks)
-                    # Need to move the append outfile to the beginning of the for loop before other logic kicks in, maybe?
+                    
+                    # Challenge to add "to be zipped" column to original sql files
                     # if (Test-Path $zipFileDestinationPath) {
                     #     $Yes = "Y"
                     #     $file | Format-Table @{N="To be Zipped? (Y/N)?";E={$Yes}} -AutoSize | Out-File -Append $MasterListFilePath
@@ -249,17 +257,17 @@ function Invoke-DBCompressScript {
                     # }
 
                     # Remove original $file if archived-file exists
-                    $fileFullPath = $file.Fullname ## can move this variable to beginning of for loop as it may be used in earlier code sections (once code is fixed)
-                    If (Test-Path $zipFileDestinationPath) {
-                        Write-Debug "-------------"
-                        Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
-                        Remove-Item $fileFullPath             
-                    }
-                    else {
-                        Write-Debug "-------------"
-                        Write-Debug "Could not find $($zipFileDestinationPath)"
-                        Write-Debug "$($file) could not be removed."
-                    }
+                    # $fileFullPath = $file.Fullname ## can move this variable to beginning of for loop as it may be used in earlier code sections (once code is fixed)
+                    # If (Test-Path $zipFileDestinationPath) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
+                    #     Remove-Item $fileFullPath             
+                    # }
+                    # else {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "Could not find $($zipFileDestinationPath)"
+                    #     Write-Debug "$($file) could not be removed."
+                    # }
                 }
                 # Format files in $ArchivedFullPath 
                 $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
@@ -319,4 +327,4 @@ function Invoke-DBCompressScript {
     }
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
-Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
+Invoke-DBCompressScript -Path ".\testStructures\testT9"  -SQLFileExtension ".sql"
