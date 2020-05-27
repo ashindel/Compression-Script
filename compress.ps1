@@ -319,4 +319,5 @@ function Invoke-DBCompressScript {
     }
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
-Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
+#Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
+Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps - CompressionTesting"
