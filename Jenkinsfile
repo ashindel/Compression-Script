@@ -23,10 +23,6 @@ pipeline
 			}
 		}
 	}
-	post {
-		always {
-		}
-	}
 }
 void powerScript() {
 	powershell script: "./compress.ps1"
