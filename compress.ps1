@@ -57,7 +57,7 @@ Currently the script throws an unexpected exception when it first tries to write
 - Expand how the script traverses through file directories to closer mimic Jenkins directory structure 
 #>
 
-<# Task 8: (Completed, except challenges)
+<# Task 8: (Completed, challenges WIP)
 - Script should archive every file except the most-recently-modified file. 
     - Determine which files to archive based on the "Date Modified" field of file. 
 - Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays 
@@ -67,10 +67,24 @@ Currently the script throws an unexpected exception when it first tries to write
 - Challenge: Add fail-safe to not zip most recently created file by parsing each file #
 #>
 
-<# Task 9: (Completed)
+<# Task 8.5: (Completed)
 - Connect to Jenkins
-- Run test on ITS115 server
-- Waiting on management approval for full deployement 
+- Run build test on its115 server
+#>
+
+<# Task 9:
+Recording stat-data and reporting it.
+Goal:  write to the "master file" log file the following:
+1. Total file-size of all .sql files the script eventually turned into .zip files
+2. Total number/count of all .sql files the script turned into .zip files
+3. Total file-size of all the .zip files the script created
+4. Do some math with those numbers:
+    - how much file-space was saved by turning all those .sql files into .zips
+    - what percent of file-space was saved (in relation to the total .sql file-size)
+    - average .sql file size
+    - average .zip file size
+Advanced/optional:
+report the median .sql file size, and the median .zip file size (calculating the median may require storing each file sizes individually as opposed to lumping them together).
 #>
 
 function Invoke-DBCompressScript {
@@ -184,33 +198,24 @@ function Invoke-DBCompressScript {
                 }
                 # variable for failsafe file number test
                 $largest = 0
-                # Run through each file in its### folder 
-                foreach ($file in $itsChildFiles) {
-                    # Psuedo code
-                    # foreach file in its folder {
-                    #     if the files number found in its name is greater than the next file then
-                    #     add it to a variable tracking that number variable
-                    #     then once looping through all the files in a folder, do not compress the file that had the greatest value 
-                    # }
-                    
-                    # challenge to add failsafe based on file with largest number in its name (do not compress this file)
-                    $itsChilsFilesFullName = $itsChildFiles.FullName
-                    $itsChilsFilesFullName
-                    $fileNum = Get-ChildItem $itsChilsFilesFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a filename
-                    $fileNum
-                    Write-debug "------------------------------"
-                    foreach ($number in $fileNum) {
-                        if ($number -gt $largest) {
-                            $largest = $number
-                            $largest
-                        }
+                $itsChildFilesFullName = $itsChildFiles.FullName
+                $fileNum1 = Get-ChildItem $itsChildFilesFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a filename
+                foreach ($number in $fileNum1) {
+                    if (($number -as [int32]) -gt $largest) {
+                        $largest = ($number -as [int32])
                     }
-                    break
-                    # stop loop before compressing if the $fileNum is equal to the largest file number in the list of files per each its### folder
-                    if ($fileNum -eq $largest) {
-                        break 
-                    } 
-            
+                }
+                    
+                # Run through each file in its### folder 
+                foreach ($file in $itsChildFiles) {  
+                    $fileFullPath = $file.Fullname              
+                    # challenge to add failsafe based on file with largest number in its name (do not compress this file)
+                    $fileNum2 = Get-Item $fileFullPath | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a filename
+                    if ($fileNum2 -eq $largest) {
+                        break
+                    }
+                      
+                    
 
                     # $LastFileinList equals most recently modified file in each its### folder
                     $LastFileinList = $itsChildFiles[-1]
