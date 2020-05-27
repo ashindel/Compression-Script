@@ -272,52 +272,54 @@ function Invoke-DBCompressScript {
             }
         }
     }
-    # open the Master List text file if applicable
-    if ($MasterListValid) {
-        Write-Debug "-------------"
-        Write-Debug "Opening the file: $($MasterListFilePath)..."
-        Invoke-Item $MasterListFilePath  
-    }
-    #ReverseCreatedItems function used to delete archived folders and Master List text file for script testing purposes
-    Write-Debug "-------------"
-    Write-Debug "For testing purposes:"
-    Write-Debug "Enter 1 to delete all newly created archived folders and the Master List."
-    Write-Debug "Enter any other value to end script."
-    $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter value'
-    function ReverseCreatedItems {
-        Write-Debug "All $($ArchivedFolderName) folders removed."
-        Get-ChildItem $Path -recurse | Where-Object {$_.extension -match ".zip"} | ForEach-Object { remove-item $_.FullName -force}
-        Get-ChildItem $Path -recurse | Where-Object {$_.name -like $ArchivedFolderName} | ForEach-Object { remove-item $_.FullName -force}
-        # If the Master List path is valid, remove the file 
-        if ($MasterListValid) {
-            Write-Debug "Removing file: $MasterListFilePath"
-            Remove-Item -Path $MasterListFilePath -include *.txt
-        }  
-        # If the Master List path is not valid, prompt user to remove any instance of a Master List
-        else {
-            Write-Debug "No Master List was created... "
-            Write-Debug "Do you want to remove any instance of a Master List?"
-            $MasterListDelete = Read-Host -Prompt 'Enter 1 for Yes. Any other value to cancel'
-            if ($MasterListDelete -eq 1) {
-                $MostParentPath = (Get-Item $Path).parent.parent.FullName
-                Write-Debug "Deleting Master List at location: $($MostParentPath)"
-                Get-ChildItem $MostParentPath | Where-Object {$_.name -match "text-output"} | ForEach-Object { remove-item $_.FullName -force}
-            }
-            else {
-                Write-Debug "No Master List was deleted."
-            }
-        }
-    }
-    # Execute ReverseCreatedItems function is user value equals "1"
-    if ($ReverseCreatedItemsParam -eq 1) {
-        ReverseCreatedItems
-        return "The $($MyInvocation.MyCommand) script has terminated."
-    } 
-    else {
-        Write-Debug "No folders or files were deleted"
-        return "The $($MyInvocation.MyCommand) script has terminated."
-    }
+
+    # # open the Master List text file if applicable
+    # if ($MasterListValid) {
+    #     Write-Debug "-------------"
+    #     Write-Debug "Opening the file: $($MasterListFilePath)..."
+    #     Invoke-Item $MasterListFilePath  
+    # }
+
+    # #ReverseCreatedItems function used to delete archived folders and Master List text file for script testing purposes
+    # Write-Debug "-------------"
+    # Write-Debug "For testing purposes:"
+    # Write-Debug "Enter 1 to delete all newly created archived folders and the Master List."
+    # Write-Debug "Enter any other value to end script."
+    # $ReverseCreatedItemsParam = Read-Host -Prompt 'Enter value'
+    # function ReverseCreatedItems {
+    #     Write-Debug "All $($ArchivedFolderName) folders removed."
+    #     Get-ChildItem $Path -recurse | Where-Object {$_.extension -match ".zip"} | ForEach-Object { remove-item $_.FullName -force}
+    #     Get-ChildItem $Path -recurse | Where-Object {$_.name -like $ArchivedFolderName} | ForEach-Object { remove-item $_.FullName -force}
+    #     # If the Master List path is valid, remove the file 
+    #     if ($MasterListValid) {
+    #         Write-Debug "Removing file: $MasterListFilePath"
+    #         Remove-Item -Path $MasterListFilePath -include *.txt
+    #     }  
+    #     # If the Master List path is not valid, prompt user to remove any instance of a Master List
+    #     else {
+    #         Write-Debug "No Master List was created... "
+    #         Write-Debug "Do you want to remove any instance of a Master List?"
+    #         $MasterListDelete = Read-Host -Prompt 'Enter 1 for Yes. Any other value to cancel'
+    #         if ($MasterListDelete -eq 1) {
+    #             $MostParentPath = (Get-Item $Path).parent.parent.FullName
+    #             Write-Debug "Deleting Master List at location: $($MostParentPath)"
+    #             Get-ChildItem $MostParentPath | Where-Object {$_.name -match "text-output"} | ForEach-Object { remove-item $_.FullName -force}
+    #         }
+    #         else {
+    #             Write-Debug "No Master List was deleted."
+    #         }
+    #     }
+    # }
+    # # Execute ReverseCreatedItems function is user value equals "1"
+    # if ($ReverseCreatedItemsParam -eq 1) {
+    #     ReverseCreatedItems
+    #     return "The $($MyInvocation.MyCommand) script has terminated."
+    # } 
+    # else {
+    #     Write-Debug "No folders or files were deleted"
+    #     return "The $($MyInvocation.MyCommand) script has terminated."
+    # }
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
 #Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
-Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps - CompressionTesting"
+Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps - CompressionTesting" -MasterListFolderPath "D:\Drupal 8 Dumps - CompressionTesting\Logs"
