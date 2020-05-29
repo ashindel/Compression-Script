@@ -320,11 +320,12 @@ function Invoke-DBCompressScript {
     # get average file size of compressed files (in kb)
     $avgZipFileSize = ($totalzipFileSize / $ZippedCount)
     $avgZipFileSize = [math]::Round($avgZipFileSize,2)
-
-    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize
+ 
+    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize, $SQLFilesCount, $ZippedCount
     # create metrics table 
-    $MetricsOutput = $Metrics | Select-Object @{N="Saved File Space Value";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
-    @{N="Average $($SQLFileExtension) File Size";E={$avgSQLFileSize}}, @{N="Average .zip File Size";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize
+    $MetricsOutput = $Metrics | Select-Object @{N="Num of .sql files";E={$SQLFilesCount}},@{N="Num of compressed files";E={$ZippedCount}},
+    @{N="Saved File Space Value (kb)";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
+    @{N="Avg $($SQLFileExtension) File Size (kb)";E={$avgSQLFileSize}}, @{N="Avg .zip File Size (kb)";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize
     if ($MasterListValid) {
         $MetricsOutput | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
     }
