@@ -265,14 +265,13 @@ function Invoke-DBCompressScript {
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files   
-
-                    # get total file size of compressed files (in kb)
-                    $zipFileSize = Get-Item $zipFileDestinationPath | ForEach-Object {[int]($_.length / 1kb)}
-                    $totalzipFileSize = $zipFileSize + $totalzipFileSize
-
+                    
                     # get the count of the total number of files that are compressed 
                     if (Test-Path $zipFileDestinationPath)
                     {
+                        # get total file size of compressed files (in kb)
+                        $zipFileSize = Get-Item $zipFileDestinationPath | ForEach-Object {[int]($_.length / 1kb)}
+                        $totalzipFileSize = $zipFileSize + $totalzipFileSize
                         $ZippedCount += 1
                     }
                     
