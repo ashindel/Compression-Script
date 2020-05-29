@@ -311,7 +311,7 @@ function Invoke-DBCompressScript {
     $SavedFileSpace = $totalsqlFileSize - $zipFileSize
     # Percent value of saved file-space
     $PercentSavedFileSpace = (($SavedFileSpace / $totalsqlFileSize) * 100)
-    $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,2)
+    $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,1)
     # get average file size of sql files (in kb)
     $avgSQLFileSize = ($totalsqlFileSize / $SQLFilesCount)
     $avgSQLFileSize = [math]::Round($avgSQLFileSize,2)
@@ -319,16 +319,21 @@ function Invoke-DBCompressScript {
     $avgZipFileSize = ($totalzipFileSize / $ZippedCount)
     $avgZipFileSize = [math]::Round($avgZipFileSize,2)
 
-    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize
+    $PercentOfAllFilesZipped = [math]::Round((($ZippedCount / $SQLFilesCount) * 100),1)
+
+    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize, $SQLFilesCount, $ZippedCount, $PercentOfAllFilesZipped
     # create metrics table 
-    $MetricsOutput = $Metrics | Select-Object @{N="Saved File Space KB";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
-    @{N="Average $($SQLFileExtension) File Size KB";E={$avgSQLFileSize}}, @{N="Average .zip File Size KB";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize
+    $MetricsOutput = $Metrics | Select-Object @{N="Num of .sql files";E={$SQLFilesCount}},@{N="Num of compressed files";E={$ZippedCount}},
+    @{N="Saved File Space Value (kb)";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
+    @{N="Avg $($SQLFileExtension) File Size (kb)";E={$avgSQLFileSize}}, @{N="Avg .zip File Size (kb)";E={$avgZipFileSize}}, @{N="% of files zipped";E={$PercentOfAllFilesZipped}} -first 1 | Format-Table -AutoSize
+
     if ($MasterListValid) {
         $MetricsOutput | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
     }
-    else {
-        Write-Output ($MetricsOutput | Out-String) ## Print $ArchivedFullPath files to console 
-    }
+    Write-Output " "
+    Write-Output "Summary:"
+    Write-Output ($MetricsOutput | Out-String) ## Print $ArchivedFullPath files to console 
+
 
     # # open the Master List text file if applicable
     # if ($MasterListValid) {
