@@ -296,8 +296,8 @@ function Invoke-DBCompressScript {
                     }
                     else {
                         Write-Debug "-------------"
-                        Write-Debug "Could not find $($zipFileDestinationPath)"
-                        Write-Debug "$($file) could not be removed."
+                        Write-Debug "Could not access newly created zip file $($zipFileDestinationPath)"
+                        Write-Debug "  not deleting original file $($file)."
                     }
                 }
                 
@@ -321,7 +321,7 @@ function Invoke-DBCompressScript {
     }
     else {
         $PercentSavedFileSpace = (($SavedFileSpace / $totalsqlFileSize) * 100)
-        $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,1)
+        $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,3)
     }
     
     # get average file size of sql files (in kb)
