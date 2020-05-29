@@ -107,9 +107,12 @@ function Invoke-DBCompressScript {
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt",  ## Master List text file location
         [int]$ArchiveDateLimitInDays = 1 ## default value for the # of day(s) a $file's "date modified" value will be tested against to determine if compression occurs 
     )
-    $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
+    $DebugPreference = "Continue" ## "SilentlyContinue" = no debug messages, "Continue" will display debug messages
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
     $ArchiveDateLimitInDaysNeg = ($ArchiveDateLimitInDays * 24 * 60 * 60 * 1000 * -1) ## convert to ArchiveDateLimitInDays value to negative milliseconds to use in $fileDateCompare test
+    $totalsqlFileSize = 0 ## total file size of all sql files
+    $zipFileSize = 0 ## variable for total filze size of all compressed files
+    $zippedCount = 0 ## variable to count the number of compressed files
 
     # Test the $MasterListFolderPath  to determine script output behavior  
     # If $MasterListFolderPath  is valid, use Out-File command 
@@ -207,9 +210,9 @@ function Invoke-DBCompressScript {
                         $largest = ($number -as [int32])
                     }
                 }
-                    
+                
                 # Run through each file in a its### folder 
-                foreach ($file in $itsChildFiles) {      
+                foreach ($file in $itsChildFiles) {  
                     # finds first group of digits in each $file name
                     if( $file.Name -match '^\d+' ) {
                         $fileNum2 = ($matches[0] -as [int32])
@@ -238,13 +241,18 @@ function Invoke-DBCompressScript {
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime                  
                     
                     # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
-                    if ($fileTest -gt $fileDateCompare) {
-                        Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
-                        Write-Debug "$($file) will not be compressed."
-                        continue
-                    }
-                    
+                    # if ($fileTest -gt $fileDateCompare) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
+                    #     Write-Debug "$($file) will not be compressed."
+                    #     continue
+                    # }
+            
+                    # get total file size of sql files
+                    $sqlFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
+                    $totalsqlFileSize = $sqlFileSize + $totalsqlFileSize
+                    Write-Debug "$totalsqlFileSize is the total size of sql files before compression"
+
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
                     Write-Debug "-------------"
@@ -252,7 +260,22 @@ function Invoke-DBCompressScript {
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
                     Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files                
+                    # get total file size of zipped files
+                    $zipFileSize = Get-Item $zipFileDestinationPath | ForEach-Object {[int]($_.length / 1kb)}
+                    $totalzipFileSize = $zipFileSize + $totalzipFileSize
+                    Write-Debug "$totalzipFileSize is the total compressed size in KB"
+
+                    # get count of the total number of files that are compressed 
+                    if (Test-Path $zipFileDestinationPath)
+                    {
+                        $zippedCount += 1
+                    }
+                    Write-Debug "$zippedCount is the # of files zipped"
+                    continue
+                        
+
                     
+
                     # Challenge: add "to be zipped" column to original sql files output
                     # if (Test-Path $zipFileDestinationPath) {
                     #     $Yes = "Y"
@@ -265,17 +288,17 @@ function Invoke-DBCompressScript {
                     # }
 
                     # Remove original $file if archived-file exists
-                    $fileFullPath = $file.Fullname 
-                    If (Test-Path $zipFileDestinationPath) {
-                        Write-Debug "-------------"
-                        Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
-                        Remove-Item $fileFullPath             
-                    }
-                    else {
-                        Write-Debug "-------------"
-                        Write-Debug "Could not find $($zipFileDestinationPath)"
-                        Write-Debug "$($file) could not be removed."
-                    }
+                    # $fileFullPath = $file.Fullname 
+                    # If (Test-Path $zipFileDestinationPath) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
+                    #     Remove-Item $fileFullPath             
+                    # }
+                    # else {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "Could not find $($zipFileDestinationPath)"
+                    #     Write-Debug "$($file) could not be removed."
+                    # }
                 }
                 # Format files in $ArchivedFullPath 
                 $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
