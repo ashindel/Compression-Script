@@ -73,7 +73,7 @@ Currently the script throws an unexpected exception when it first tries to write
 - Split code into two branches, local and Jenkins versions
 #>
 
-<# Task 9:
+<# Task 9: (Completed)
 Recording stat-data and reporting it.
 Goal:  write to the "master file" log file the following:
 1. Total file-size of all .sql files the script eventually turned into .zip files
@@ -84,8 +84,6 @@ Goal:  write to the "master file" log file the following:
     - what percent of file-space was saved (in relation to the total .sql file-size)
     - average .sql file size
     - average .zip file size
-Advanced/optional:
-report the median .sql file size, and the median .zip file size (calculating the median may require storing each file sizes individually as opposed to lumping them together).
 #>
 
 function Invoke-DBCompressScript {
@@ -243,12 +241,12 @@ function Invoke-DBCompressScript {
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime                  
                     
                     # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
-                    # if ($fileTest -gt $fileDateCompare) {
-                    #     Write-Debug "-------------"
-                    #     Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
-                    #     Write-Debug "$($file) will not be compressed."
-                    #     continue
-                    # }
+                    if ($fileTest -gt $fileDateCompare) {
+                        Write-Debug "-------------"
+                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
+                        Write-Debug "$($file) will not be compressed."
+                        continue
+                    }
             
                     # get total file size of sql files (in kb)
                     $SQLFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
