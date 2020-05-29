@@ -102,7 +102,7 @@ function Invoke-DBCompressScript {
         [String]$SQLFileExtension = ".sql", ## default value of .sql file extenion
         [String]$ArchivedFolderPath = "\archived", ## default value of archived folders to be created
         [String]$MasterListFolderPath = ".", ## default value of Master List folder location
-        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt",  ## Master List text file location
+        [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\$($ENV:BUILD_NUMBER)-DBCompressScript-Text-Output.txt",  ## Master List text file location
         [int]$ArchiveDateLimitInDays = 1 ## default value for the # of day(s) a $file's "date modified" value will be tested against to determine if compression occurs 
     )
     $DebugPreference = "Continue" ## "SilentlyContinue" = no debug messages, "Continue" will display debug messages
