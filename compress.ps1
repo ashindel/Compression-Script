@@ -254,9 +254,7 @@ function Invoke-DBCompressScript {
                         continue
                     }
             
-                    # get total file size of sql files (in kb)
-                    $SQLFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
-                    $totalsqlFileSize = $SQLFileSize + $totalsqlFileSize
+
 
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
@@ -264,11 +262,22 @@ function Invoke-DBCompressScript {
                     Write-Debug " Zipping file '$($file.Name)' to folder '$($ArchivedFullPath)'"
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
-                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files   
+                    try {
+                        Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files   
+                    } catch {
+                        Write-Output "Compress-Archive failed."
+                        Write-Output $_.Exception
+                        Write-Output $_.ErrorDetails
+                        Write-Output $_.ScriptStackTrace
+                    }
                     
                     # get the count of the total number of files that are compressed 
                     if (Test-Path $zipFileDestinationPath)
                     {
+                        # get total file size of sql files (in kb)
+                        $SQLFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
+                        $totalsqlFileSize = $SQLFileSize + $totalsqlFileSize
+
                         # get total file size of compressed files (in kb)
                         $zipFileSize = Get-Item $zipFileDestinationPath | ForEach-Object {[int]($_.length / 1kb)}
                         $totalzipFileSize = $zipFileSize + $totalzipFileSize
