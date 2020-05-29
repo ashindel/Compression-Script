@@ -316,16 +316,31 @@ function Invoke-DBCompressScript {
     # file-space was saved by turning all those .sql files into .zips
     $SavedFileSpace = $totalsqlFileSize - $zipFileSize
     # Percent value of saved file-space
-    $PercentSavedFileSpace = (($SavedFileSpace / $totalsqlFileSize) * 100)
-    $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,1)
+    if ($totalsqlFileSize -eq 0) {
+        Write-Debug "Cannot compute PercentSavedFileSpace due to divide by zero error"
+    }
+    else {
+        $PercentSavedFileSpace = (($SavedFileSpace / $totalsqlFileSize) * 100)
+        $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,1)
+    }
+    
     # get average file size of sql files (in kb)
-    $avgSQLFileSize = ($totalsqlFileSize / $SQLFilesCount)
-    $avgSQLFileSize = [math]::Round($avgSQLFileSize,2)
+    if ($SQLFilesCount -eq 0) {
+        Write-Debug "Cannot compute avgSQLFileSize due to divide by zero error"
+    }
+    else {
+        $avgSQLFileSize = ($totalsqlFileSize / $SQLFilesCount)
+        $avgSQLFileSize = [math]::Round($avgSQLFileSize,2)
+        $PercentOfAllFilesZipped = [math]::Round((($ZippedCount / $SQLFilesCount) * 100),1)
+    }
     # get average file size of compressed files (in kb)
-    $avgZipFileSize = ($totalzipFileSize / $ZippedCount)
-    $avgZipFileSize = [math]::Round($avgZipFileSize,2)
-
-    $PercentOfAllFilesZipped = [math]::Round((($ZippedCount / $SQLFilesCount) * 100),1)
+    if ($ZippedCount -eq 0){
+        Write-Debug "Cannot compute avgSQLFileSize due to divide by zero error"
+    }
+    else {
+        $avgZipFileSize = ($totalzipFileSize / $ZippedCount)
+        $avgZipFileSize = [math]::Round($avgZipFileSize,2)
+    }
 
     $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize, $SQLFilesCount, $ZippedCount, $PercentOfAllFilesZipped
     # create metrics table 
