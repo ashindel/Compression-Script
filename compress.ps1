@@ -284,17 +284,17 @@ function Invoke-DBCompressScript {
                     # }
 
                     # Remove original $file if archived-file exists
-                    # $fileFullPath = $file.Fullname 
-                    # If (Test-Path $zipFileDestinationPath) {
-                    #     Write-Debug "-------------"
-                    #     Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
-                    #     Remove-Item $fileFullPath             
-                    # }
-                    # else {
-                    #     Write-Debug "-------------"
-                    #     Write-Debug "Could not find $($zipFileDestinationPath)"
-                    #     Write-Debug "$($file) could not be removed."
-                    # }
+                    $fileFullPath = $file.Fullname 
+                    If (Test-Path $zipFileDestinationPath) {
+                        Write-Debug "-------------"
+                        Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
+                        Remove-Item $fileFullPath             
+                    }
+                    else {
+                        Write-Debug "-------------"
+                        Write-Debug "Could not find $($zipFileDestinationPath)"
+                        Write-Debug "$($file) could not be removed."
+                    }
                 }
                 
                 # Format files in $ArchivedFullPath 
