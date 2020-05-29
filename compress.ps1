@@ -321,17 +321,19 @@ function Invoke-DBCompressScript {
 
     $PercentOfAllFilesZipped = [math]::Round((($ZippedCount / $SQLFilesCount) * 100),1)
 
-    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize, $SQLFilesCount, $ZippedCount
+    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize, $SQLFilesCount, $ZippedCount, $PercentOfAllFilesZipped
     # create metrics table 
-    $MetricsOutput = $Metrics | Select-Object @{N="Num of .sql files";E={$SQLFilesCount}},@{N="Num of compressed files";E={$ZippedCount}},
+    $MetricsOutput = $Metrics | Select-Object @{N="Num of .sql files";E={$SQLFilesCount}},@{N="Num of compressed files";E={$ZippedCount}}, @{N="% of files zipped";E={$PercentOfAllFilesZipped}}, 
     @{N="Saved File Space Value (kb)";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
-    @{N="Avg $($SQLFileExtension) File Size (kb)";E={$avgSQLFileSize}}, @{N="Avg .zip File Size (kb)";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize
+    @{N="Avg $($SQLFileExtension) File Size (kb)";E={$avgSQLFileSize}}, @{N="Avg .zip File Size (kb)";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize -Wrap
+
     if ($MasterListValid) {
         $MetricsOutput | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
     }
+    ## Print $ArchivedFullPath files to console too:
     Write-Output " "
     Write-Output "Summary:"
-    Write-Output ($MetricsOutput | Out-String) ## Print $ArchivedFullPath files to console 
+    Write-Output ($MetricsOutput | Out-String) 
 
 
     # # open the Master List text file if applicable
