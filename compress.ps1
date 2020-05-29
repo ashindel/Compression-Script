@@ -150,10 +150,11 @@ function Invoke-DBCompressScript {
                 # Set full path of each its### folder equal to $itsFolderFullPath
                 $itsFolderFullPath = $itsFolderName.Fullname
                 
-                # only run on folders named its104:
-                if (-not ($itsFolderName.Name -like "its104")) {
-                    continue;
+                # only run on designated folders (skip folders not matching the given itsXXX servername)
+                if (-not(($ENV:StageToArchive -like "all") -or ($itsFolderName.Name -like $ENV:StageToArchive))) {
+                    continue; 
                 }
+
                 #  Get-FriendlySize function to get human-readable file size format for $MasterList output
                 function Get-FriendlySize {
                     # Write-Debug messages commented out for usability purposes
