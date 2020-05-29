@@ -111,8 +111,8 @@ function Invoke-DBCompressScript {
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
     $ArchiveDateLimitInDaysNeg = ($ArchiveDateLimitInDays * 24 * 60 * 60 * 1000 * -1) ## convert to ArchiveDateLimitInDays value to negative milliseconds to use in $fileDateCompare test
     $totalsqlFileSize = 0 ## total file size of all sql files
-    $zipFileSize = 0 ## variable for total filze size of all compressed files
-    $zippedCount = 0 ## variable to count the number of compressed files
+    $totalzipFileSize = 0 ## total file size of all compressed files
+    $ZippedCount = 0 ## count value for the number of compressed files
 
     # Test the $MasterListFolderPath  to determine script output behavior  
     # If $MasterListFolderPath  is valid, use Out-File command 
@@ -211,8 +211,10 @@ function Invoke-DBCompressScript {
                     }
                 }
                 
-                # Run through each file in a its### folder 
-                foreach ($file in $itsChildFiles) {  
+                # Run through each file in each its### folder 
+                foreach ($file in $itsChildFiles) { 
+                    # get number of sql files in each its### folder 
+                    $SQLFilesCount += 1
                     # finds first group of digits in each $file name
                     if( $file.Name -match '^\d+' ) {
                         $fileNum2 = ($matches[0] -as [int32])
@@ -248,10 +250,9 @@ function Invoke-DBCompressScript {
                     #     continue
                     # }
             
-                    # get total file size of sql files
-                    $sqlFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
-                    $totalsqlFileSize = $sqlFileSize + $totalsqlFileSize
-                    Write-Debug "$totalsqlFileSize is the total size of sql files before compression"
+                    # get total file size of sql files (in kb)
+                    $SQLFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
+                    $totalsqlFileSize = $SQLFileSize + $totalsqlFileSize
 
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
@@ -259,23 +260,18 @@ function Invoke-DBCompressScript {
                     Write-Debug " Zipping file '$($file.Name)' to folder '$($ArchivedFullPath)'"
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
-                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files                
-                    # get total file size of zipped files
+                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files   
+
+                    # get total file size of compressed files (in kb)
                     $zipFileSize = Get-Item $zipFileDestinationPath | ForEach-Object {[int]($_.length / 1kb)}
                     $totalzipFileSize = $zipFileSize + $totalzipFileSize
-                    Write-Debug "$totalzipFileSize is the total compressed size in KB"
 
-                    # get count of the total number of files that are compressed 
+                    # get the count of the total number of files that are compressed 
                     if (Test-Path $zipFileDestinationPath)
                     {
-                        $zippedCount += 1
+                        $ZippedCount += 1
                     }
-                    Write-Debug "$zippedCount is the # of files zipped"
-                    continue
-                        
-
                     
-
                     # Challenge: add "to be zipped" column to original sql files output
                     # if (Test-Path $zipFileDestinationPath) {
                     #     $Yes = "Y"
@@ -300,6 +296,7 @@ function Invoke-DBCompressScript {
                     #     Write-Debug "$($file) could not be removed."
                     # }
                 }
+                
                 # Format files in $ArchivedFullPath 
                 $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
                 if ($MasterListValid) {
@@ -311,12 +308,37 @@ function Invoke-DBCompressScript {
             }
         }
     }
+    # Script Metric Calculations
+    # file-space was saved by turning all those .sql files into .zips
+    $SavedFileSpace = $totalsqlFileSize - $zipFileSize
+    # Percent value of saved file-space
+    $PercentSavedFileSpace = (($SavedFileSpace / $totalsqlFileSize) * 100)
+    $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,2)
+    # get average file size of sql files (in kb)
+    $avgSQLFileSize = ($totalsqlFileSize / $SQLFilesCount)
+    $avgSQLFileSize = [math]::Round($avgSQLFileSize,2)
+    # get average file size of compressed files (in kb)
+    $avgZipFileSize = ($totalzipFileSize / $ZippedCount)
+    $avgZipFileSize = [math]::Round($avgZipFileSize,2)
+
+    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize
+    # create metrics table 
+    $MetricsOutput = $Metrics | Select-Object @{N="Saved File Space Value";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
+    @{N="Average $($SQLFileExtension) File Size";E={$avgSQLFileSize}}, @{N="Average .zip File Size";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize
+    if ($MasterListValid) {
+        $MetricsOutput | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
+    }
+    else {
+        Write-Output ($MetricsOutput | Out-String) ## Print $ArchivedFullPath files to console 
+    }
+
     # open the Master List text file if applicable
     if ($MasterListValid) {
         Write-Debug "-------------"
         Write-Debug "Opening the file: $($MasterListFilePath)..."
         Invoke-Item $MasterListFilePath  
     }
+
     #ReverseCreatedItems function used to delete archived folders and Master List text file for script testing purposes
     Write-Debug "-------------"
     Write-Debug "For testing purposes:"
