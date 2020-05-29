@@ -57,7 +57,7 @@ Currently the script throws an unexpected exception when it first tries to write
 - Expand how the script traverses through file directories to closer mimic Jenkins directory structure 
 #>
 
-<# Task 8:
+<# Task 8: (Completed, challenges WIP)
 - Script should archive every file except the most-recently-modified file. 
     - Determine which files to archive based on the "Date Modified" field of file. 
 - Add another parameter and functionality to the function: [int]$ArchiveDateLimitInDays 
@@ -65,6 +65,27 @@ Currently the script throws an unexpected exception when it first tries to write
 - Delete all matching original sql files after .zip/copy was created
 - Challenge: Add Y/N column to pre-zipped output that shows which files were and were not zipped (user friendly task)
 - Challenge: Add fail-safe to not zip most recently created file by parsing each file #
+#>
+
+<# Task 8.5: (Completed)
+- Connect to Jenkins
+- Run build test on its115 server
+- Split code into two branches, local and Jenkins versions
+#>
+
+<# Task 9:
+Recording stat-data and reporting it.
+Goal:  write to the "master file" log file the following:
+1. Total file-size of all .sql files the script eventually turned into .zip files
+2. Total number/count of all .sql files the script turned into .zip files
+3. Total file-size of all the .zip files the script created
+4. Do some math with those numbers:
+    - how much file-space was saved by turning all those .sql files into .zips
+    - what percent of file-space was saved (in relation to the total .sql file-size)
+    - average .sql file size
+    - average .zip file size
+Advanced/optional:
+report the median .sql file size, and the median .zip file size (calculating the median may require storing each file sizes individually as opposed to lumping them together).
 #>
 
 function Invoke-DBCompressScript {
@@ -86,9 +107,12 @@ function Invoke-DBCompressScript {
         [String]$MasterListFilePath = $MasterListFolderPath.toString() + "\DBCompressScript-Text-Output.txt",  ## Master List text file location
         [int]$ArchiveDateLimitInDays = 1 ## default value for the # of day(s) a $file's "date modified" value will be tested against to determine if compression occurs 
     )
-    $DebugPreference = "Continue" ## "SilentlyContinue = no debug messages, "Continue" will display debug messages
+    $DebugPreference = "Continue" ## "SilentlyContinue" = no debug messages, "Continue" will display debug messages
     $dbDumpString = $DBDumpFolderName.Substring(1) ## $dbDumpFolderName removes '/' from /dbdump string
     $ArchiveDateLimitInDaysNeg = ($ArchiveDateLimitInDays * 24 * 60 * 60 * 1000 * -1) ## convert to ArchiveDateLimitInDays value to negative milliseconds to use in $fileDateCompare test
+    $totalsqlFileSize = 0 ## total file size of all sql files
+    $totalzipFileSize = 0 ## total file size of all compressed files
+    $ZippedCount = 0 ## count value for the number of compressed files
 
     # Test the $MasterListFolderPath  to determine script output behavior  
     # If $MasterListFolderPath  is valid, use Out-File command 
@@ -176,33 +200,31 @@ function Invoke-DBCompressScript {
                 else {
                     Write-Output ($OutputText | Out-String) ## Print $dbDumpChildFiles files to console 
                 }
+                # variable for fail-safe file number test
+                $largest = 0
+                $itsChildFilesFullName = $itsChildFiles.FullName
+                $fileNum1 = Get-ChildItem $itsChildFilesFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a filename
+                # find file with largest number in beginning of its name per every its### folder
+                foreach ($number in $fileNum1) {
+                    if (($number -as [int32]) -gt $largest) {
+                        $largest = ($number -as [int32])
+                    }
+                }
                 
-                
-                # Run through each file in its### folder 
-                foreach ($file in $itsChildFiles) {
-                    # Psuedo code
-                    # foreach file in its folder {
-                    #     if the files number found in its name is greater than the next file then
-                    #     add it to a variable tracking that number variable
-                    #     then once looping through all the files in a folder, do not compress the file that had the greatest value (as found in other variable?)
-                    # }
-                    
-                    # $largest = 0
-                    # foreach ($file in $itsChildFiles) {
-                    #     $fileFullName = $file.FullName
-                    #     $fileNum = Get-Item $fileFullName | Where-Object { $_.Name -match '^\d+' } | ForEach-Object { $matches[0] } ## finds first group of digits in a file
-                    #     foreach ($number in $fileNum) {
-                    #         if ($number -gt $largest) {
-                    #             $largest = $number
-                    #             $largest
-                    #         }
-                    #     }
-                    #     # stop loop before compressing if the $fileNum is equal to the largest file number in the list of files per each its### folder
-                    #     if ($fileNum -eq $largest)
-                    #     {
-                    #         break 
-                    #     } 
-                    # }
+                # Run through each file in each its### folder 
+                foreach ($file in $itsChildFiles) { 
+                    # get number of sql files in each its### folder 
+                    $SQLFilesCount += 1
+                    # finds first group of digits in each $file name
+                    if( $file.Name -match '^\d+' ) {
+                        $fileNum2 = ($matches[0] -as [int32])
+                    }
+                    # if group of digits equals largest found value for the files in a its### folder, do not compress
+                    if ($fileNum2 -eq $largest) {
+                        Write-Debug "-------------"
+                        Write-Debug "$file is not compressed."
+                        continue
+                    }
 
                     # $LastFileinList equals most recently modified file in each its### folder
                     $LastFileinList = $itsChildFiles[-1]
@@ -211,7 +233,7 @@ function Invoke-DBCompressScript {
                         Write-Debug "-------------"
                         Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is the most recently modified file."
                         Write-Debug "$($file) will not be compressed."
-                        break
+                        continue
                     }
                     
                     # $MostRecentFile is the most recently modified file's "date modified" property
@@ -221,23 +243,36 @@ function Invoke-DBCompressScript {
                     $fileTest = (Get-Item -Path $File.FullName).LastWriteTime                  
                     
                     # If $file "date modified" property is less than one day old from the most recently modified file ($LastFileinList), then do not compress
-                    if ($fileTest -gt $fileDateCompare) {
-                        Write-Debug "-------------"
-                        Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
-                        Write-Debug "$($file) will not be compressed."
-                        break
-                    }
-                    
+                    # if ($fileTest -gt $fileDateCompare) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "The $($file) file from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder is less than 1 day old as of running this script"
+                    #     Write-Debug "$($file) will not be compressed."
+                    #     continue
+                    # }
+            
+                    # get total file size of sql files (in kb)
+                    $SQLFileSize = Get-ChildItem $file.FullName | ForEach-Object {[int]($_.length / 1kb)}
+                    $totalsqlFileSize = $SQLFileSize + $totalsqlFileSize
+
                     # assemble the file path that will be our new .zip file
                     $zipFileDestinationPath = "$($ArchivedFullPath)\$($file.BaseName).zip" 
                     Write-Debug "-------------"
                     Write-Debug " Zipping file '$($file.Name)' to folder '$($ArchivedFullPath)'"
                     Write-Debug " Path to file to be zip: '$($file.FullName)'"
                     Write-Debug " Destination: $zipFileDestinationPath"
-                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files                
+                    Compress-Archive -LiteralPath $file.FullName -DestinationPath $zipFileDestinationPath -Update ## Update parameter will overwrite changes to zipped files   
+
+                    # get total file size of compressed files (in kb)
+                    $zipFileSize = Get-Item $zipFileDestinationPath | ForEach-Object {[int]($_.length / 1kb)}
+                    $totalzipFileSize = $zipFileSize + $totalzipFileSize
+
+                    # get the count of the total number of files that are compressed 
+                    if (Test-Path $zipFileDestinationPath)
+                    {
+                        $ZippedCount += 1
+                    }
                     
-                    # Index or loop over original format table? (see bookmarks)
-                    # Need to move the append outfile to the beginning of the for loop before other logic kicks in, maybe?
+                    # Challenge: add "to be zipped" column to original sql files output
                     # if (Test-Path $zipFileDestinationPath) {
                     #     $Yes = "Y"
                     #     $file | Format-Table @{N="To be Zipped? (Y/N)?";E={$Yes}} -AutoSize | Out-File -Append $MasterListFilePath
@@ -249,18 +284,19 @@ function Invoke-DBCompressScript {
                     # }
 
                     # Remove original $file if archived-file exists
-                    $fileFullPath = $file.Fullname ## can move this variable to beginning of for loop as it may be used in earlier code sections (once code is fixed)
-                    If (Test-Path $zipFileDestinationPath) {
-                        Write-Debug "-------------"
-                        Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
-                        Remove-Item $fileFullPath             
-                    }
-                    else {
-                        Write-Debug "-------------"
-                        Write-Debug "Could not find $($zipFileDestinationPath)"
-                        Write-Debug "$($file) could not be removed."
-                    }
+                    # $fileFullPath = $file.Fullname 
+                    # If (Test-Path $zipFileDestinationPath) {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "Removing $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName)/$($file)"
+                    #     Remove-Item $fileFullPath             
+                    # }
+                    # else {
+                    #     Write-Debug "-------------"
+                    #     Write-Debug "Could not find $($zipFileDestinationPath)"
+                    #     Write-Debug "$($file) could not be removed."
+                    # }
                 }
+                
                 # Format files in $ArchivedFullPath 
                 $OutputText = Get-ChildItem -Path $ArchivedFullPath -File -Recurse | Select-Object @{N="Zipped files from $($d8cRepoFolder.Name)/$($DBDumpString)/$($itsFolderName) folder";E={$_.name}}, @{N='File Size';E={Get-FriendlySize -Bytes $_.Length}} | Format-Table -AutoSize
                 if ($MasterListValid) {
@@ -271,6 +307,29 @@ function Invoke-DBCompressScript {
                 }
             }
         }
+    }
+    # Script Metric Calculations
+    # file-space was saved by turning all those .sql files into .zips
+    $SavedFileSpace = $totalsqlFileSize - $zipFileSize
+    # Percent value of saved file-space
+    $PercentSavedFileSpace = (($SavedFileSpace / $totalsqlFileSize) * 100)
+    $PercentSavedFileSpace =[math]::Round($PercentSavedFileSpace,2)
+    # get average file size of sql files (in kb)
+    $avgSQLFileSize = ($totalsqlFileSize / $SQLFilesCount)
+    $avgSQLFileSize = [math]::Round($avgSQLFileSize,2)
+    # get average file size of compressed files (in kb)
+    $avgZipFileSize = ($totalzipFileSize / $ZippedCount)
+    $avgZipFileSize = [math]::Round($avgZipFileSize,2)
+
+    $Metrics = $SavedFileSpace, $PercentSavedFileSpace, $avgSQLFileSize, $avgZipFileSize
+    # create metrics table 
+    $MetricsOutput = $Metrics | Select-Object @{N="Saved File Space KB";E={$SavedFileSpace}}, @{N='% Saved File Space';E={$PercentSavedFileSpace}},
+    @{N="Average $($SQLFileExtension) File Size KB";E={$avgSQLFileSize}}, @{N="Average .zip File Size KB";E={$avgZipFileSize}} -first 1 | Format-Table -AutoSize
+    if ($MasterListValid) {
+        $MetricsOutput | Out-File -append $MasterListFilePath ## Add $ArchivedFullPath files to $MasterListFilePath
+    }
+    else {
+        Write-Output ($MetricsOutput | Out-String) ## Print $ArchivedFullPath files to console 
     }
 
     # # open the Master List text file if applicable
@@ -319,7 +378,8 @@ function Invoke-DBCompressScript {
     #     Write-Debug "No folders or files were deleted"
     #     return "The $($MyInvocation.MyCommand) script has terminated."
     # }
+    return "The $($MyInvocation.MyCommand) script has ended successfully."
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
-#Invoke-DBCompressScript -Path ".\testStructures\Drupal 8 Dumps"  -SQLFileExtension ".sql"
-Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps" -MasterListFolderPath "D:\Drupal 8 Dumps\_Logs"
+#Invoke-DBCompressScript -Path ".\testStructures\testT9"  -SQLFileExtension ".sql"
+Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps - CompressionTesting" -MasterListFolderPath "D:\Drupal 8 Dumps - CompressionTesting\_Logs"
