@@ -149,6 +149,11 @@ function Invoke-DBCompressScript {
             foreach ($itsFolderName in $dbdumpChildFolders) { ## get each its folder in the dbdump folder from each d8c repo folder
                 # Set full path of each its### folder equal to $itsFolderFullPath
                 $itsFolderFullPath = $itsFolderName.Fullname
+                
+                # only run on folders named its104:
+                if (-not ($itsFolderName.Name -like "its104")) {
+                    continue;
+                }
                 #  Get-FriendlySize function to get human-readable file size format for $MasterList output
                 function Get-FriendlySize {
                     # Write-Debug messages commented out for usability purposes
@@ -386,4 +391,5 @@ function Invoke-DBCompressScript {
 }
 # Run Invoke-DBCompressScript. Specify path to compress and the folder name of files to be archived (comspressed)
 #Invoke-DBCompressScript -Path ".\testStructures\testT9"  -SQLFileExtension ".sql"
-Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps - CompressionTesting" -MasterListFolderPath "D:\Drupal 8 Dumps - CompressionTesting\_Logs"
+#Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps - CompressionTesting" -MasterListFolderPath "D:\Drupal 8 Dumps - CompressionTesting\_Logs"
+Invoke-DBCompressScript -Path "D:\Drupal 8 Dumps" -MasterListFolderPath "D:\Drupal 8 Dumps\_Logs"
