@@ -314,7 +314,7 @@ function Invoke-DBCompressScript {
     }
     # Script Metric Calculations
     # file-space was saved by turning all those .sql files into .zips
-    $SavedFileSpace = $totalsqlFileSize - $zipFileSize
+    $SavedFileSpace = $totalsqlFileSize - $totalzipFileSize
     # Percent value of saved file-space
     if ($totalsqlFileSize -eq 0) {
         Write-Debug "Cannot compute PercentSavedFileSpace due to divide by zero error"
