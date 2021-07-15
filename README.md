@@ -1,6 +1,6 @@
 # DB-Dump-Compression
 ## Alan Shindelman
-#### Powershell script created during my time at Rutgers working for their ITS department as a student WebMaster
+#### Powershell script while working at Rutgers ITS ops as a student Webmaster
 #### Purpose: Compress targeted files to free up space on server 
     
   
